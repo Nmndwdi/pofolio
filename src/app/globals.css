@@ -1,0 +1,266 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Dashboard theme tokens.
+ * Portfolio themes live in their own component files (see src/components/themes/)
+ * and override these on a wrapper element.
+ *
+ * Values are HSL channels (no hsl() wrapper) so Tailwind's color system can
+ * apply opacity modifiers like `bg-primary/50`.
+ */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --primary: 220 90% 56%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 224 71% 4%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 90% 56%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 210 20% 98%;
+    --card: 224 71% 8%;
+    --card-foreground: 210 20% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 11% 65%;
+    --accent: 215 28% 17%;
+    --accent-foreground: 210 20% 98%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 217 91% 60%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/*
+ * Portfolio theme tokens.
+ *
+ * Public portfolio pages set one of `.theme-mono`, `.theme-paper`,
+ * `.theme-terminal`, `.theme-glass` on a wrapper element. Each defines the
+ * `--p-*` variables that portfolio components consume.
+ *
+ * Why a separate namespace from the dashboard's --foreground/--background
+ * tokens: the public portfolio must look distinct from the editor, and a
+ * tweak to one shouldn't shift the other. Layouts/sections use `text-p-fg`,
+ * `bg-p-surface`, etc. (defined in tailwind.config.ts).
+ */
+@layer base {
+  /* ─── Mono — clean white, sharp grotesk, black accents (default) ────── */
+  .theme-mono {
+    --p-bg: 0 0% 100%;
+    --p-fg: 0 0% 4%;
+    --p-fg-muted: 0 0% 40%;
+    --p-fg-subtle: 0 0% 60%;
+    --p-surface: 0 0% 98%;
+    --p-surface-2: 0 0% 95%;
+    --p-border: 0 0% 90%;
+    --p-accent: 0 0% 4%;
+    --p-accent-fg: 0 0% 100%;
+    --p-positive: 142 70% 35%;
+    --p-negative: 0 70% 50%;
+    --p-font-display: var(--font-sans);
+    --p-font-body: var(--font-sans);
+    --p-font-mono: var(--font-mono);
+  }
+
+  /* ─── Paper — warm cream, serif display, ink red accent ────── */
+  .theme-paper {
+    --p-bg: 39 60% 95%;
+    --p-fg: 224 28% 14%;
+    --p-fg-muted: 224 16% 38%;
+    --p-fg-subtle: 224 12% 60%;
+    --p-surface: 36 38% 92%;
+    --p-surface-2: 36 38% 88%;
+    --p-border: 224 16% 14%;
+    --p-accent: 12 67% 38%;
+    --p-accent-fg: 39 60% 95%;
+    --p-positive: 142 60% 30%;
+    --p-negative: 0 65% 45%;
+    --p-font-display: var(--font-serif);
+    --p-font-body: var(--font-sans);
+    --p-font-mono: var(--font-mono);
+  }
+
+  /* ─── Terminal — dark, mono, green accent ────── */
+  .theme-terminal {
+    --p-bg: 0 0% 7%;
+    --p-fg: 0 0% 92%;
+    --p-fg-muted: 0 0% 60%;
+    --p-fg-subtle: 0 0% 40%;
+    --p-surface: 0 0% 10%;
+    --p-surface-2: 0 0% 14%;
+    --p-border: 0 0% 20%;
+    --p-accent: 142 70% 50%;
+    --p-accent-fg: 0 0% 7%;
+    --p-positive: 142 70% 50%;
+    --p-negative: 0 70% 60%;
+    --p-font-display: var(--font-mono);
+    --p-font-body: var(--font-mono);
+    --p-font-mono: var(--font-mono);
+  }
+
+  /* ─── Glass — dark with translucent panels ────── */
+  .theme-glass {
+    --p-bg: 224 71% 4%;
+    --p-fg: 210 20% 98%;
+    --p-fg-muted: 217 11% 65%;
+    --p-fg-subtle: 217 11% 45%;
+    --p-surface: 224 30% 10%;
+    --p-surface-2: 224 30% 14%;
+    --p-border: 217 11% 65%;
+    --p-accent: 217 91% 60%;
+    --p-accent-fg: 0 0% 100%;
+    --p-positive: 142 70% 50%;
+    --p-negative: 0 70% 60%;
+    --p-font-display: var(--font-sans);
+    --p-font-body: var(--font-sans);
+    --p-font-mono: var(--font-mono);
+  }
+}
+
+/*
+ * Small set of reusable component classes.
+ * In step 4 we'll generate proper shadcn-style components for these; for now
+ * it's enough to make the auth pages look like a product, not a wireframe.
+ */
+@layer components {
+  .input {
+    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm
+      ring-offset-background placeholder:text-muted-foreground
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply inline-flex h-10 items-center justify-center rounded-md
+      bg-primary px-4 py-2 text-sm font-medium text-primary-foreground
+      ring-offset-background transition-colors
+      hover:bg-primary/90
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex h-10 items-center justify-center rounded-md
+      border border-input bg-background px-4 py-2 text-sm font-medium
+      ring-offset-background transition-colors
+      hover:bg-accent hover:text-accent-foreground
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  /*
+   * Marketing-page-only paper background. Subtle SVG noise overlaid on the
+   * warm color makes it feel like paper rather than flat color. The data URI
+   * is a tiny fractal-noise SVG — ~400 bytes, no extra request.
+   */
+  .paper-bg {
+    background-color: #faf6ee;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+}
+
+/* ─── Print styles ──────────────────────────────────────────────────────────
+ *
+ * Make the public portfolio produce a clean PDF via the browser's native
+ * print-to-PDF (triggered by the "Download PDF" button → window.print()).
+ *
+ * Strategy: strip the interactive chrome (nav rail, mobile nav, buttons,
+ * download button itself), force a light background, and avoid breaking
+ * cards across page boundaries. The browser's print engine renders the live,
+ * already-styled page — no server, no headless Chrome needed.
+ */
+@media print {
+  /* Hide anything explicitly marked as screen-only. */
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Hide the sidebar nav rail and mobile nav — not useful on paper. */
+  aside,
+  nav {
+    display: none !important;
+  }
+
+  /* Force a white background and black text for ink economy + legibility,
+     regardless of the chosen theme. */
+  :root,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  /* Expand the main content to full width once the sidebar is gone. */
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Avoid splitting a card / section across pages where possible. */
+  section,
+  li,
+  .rounded-md,
+  .rounded-lg {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Links: show the URL after the text so the PDF is useful offline. */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.7em;
+    color: #555;
+    word-break: break-all;
+  }
+
+  /* But don't expand URLs for nav-like / button links (they're hidden anyway)
+     or for image-only links. */
+  a[data-no-print-url]::after {
+    content: "";
+  }
+}
+
+/* ─── Heatmap cell fills ──────────────────────────────────────────────────
+ *
+ * Used by GitHub contribution + LeetCode submission heatmaps. Defined as
+ * CSS classes (rather than inline `fill="hsl(var(--))"` in SVG) because
+ * Tailwind/PostCSS resolves these at build time — far more reliable than
+ * inline SVG attributes referencing CSS custom properties.
+ *
+ * The cell colors derive from the active theme's --p-* tokens, so the
+ * heatmap automatically adapts to mono/paper/terminal/glass themes.
+ */
+.heatmap-cell {
+  /* Smooth color transitions when the active theme changes. */
+  transition: fill 150ms ease-out;
+}
+.heatmap-0 { fill: hsl(var(--p-surface-2)); }
+.heatmap-1 { fill: hsl(var(--p-fg-subtle)); }
+.heatmap-2 { fill: hsl(var(--p-fg-muted)); }
+.heatmap-3 { fill: hsl(var(--p-fg)); }
