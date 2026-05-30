@@ -12,6 +12,30 @@ import type { Socials } from "@/lib/validators/profile";
  * can opt in to using it.
  */
 
+// A single image inside a project gallery.
+export interface ProjectImage {
+  id: string;
+  publicId: string;
+  caption?: string;
+  width?: number;
+  height?: number;
+}
+
+// A project record — title + description + links + images + tech list.
+export interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  role?: string;
+  year?: string;
+  demoUrl?: string;
+  sourceUrl?: string;
+  videoUrl?: string;
+  tech?: string[];
+  images?: ProjectImage[];
+  featured?: boolean;
+}
+
 export interface LayoutData {
   slug: string;
   displayName: string;
@@ -20,12 +44,10 @@ export interface LayoutData {
   avatarCloudinaryId?: string;
   socials: Socials;
 
-  // Raw handles — used by the fallback link cards when the live fetch fails
   githubHandle?: string;
   leetcodeHandle?: string;
   codeforcesHandle?: string;
 
-  // Live integration results (null if no handle, value with data otherwise)
   github: CachedResult<GitHubData> | null;
   codeforces: CachedResult<CodeforcesData> | null;
   leetcode: CachedResult<LeetCodeData> | null;
@@ -34,7 +56,6 @@ export interface LayoutData {
 
   customLinks: Array<{ id: string; label: string; url: string }>;
 
-  // Resume-derived structured content
   experience: Array<{
     id: string;
     company: string;
@@ -59,19 +80,11 @@ export interface LayoutData {
     format: string;
     bytes: number;
   }>;
-  projectImages: Array<{
-    id: string;
-    caption?: string;
-    publicId: string;
-    width?: number;
-    height?: number;
-  }>;
+
+  // Structured projects (replaces the old `projectImages` flat gallery).
+  projects: Project[];
 }
 
-/**
- * Section keys in canonical display order. Layouts that build nav menus
- * generate items from this list.
- */
 export type SectionKey =
   | "experience"
   | "education"
@@ -99,7 +112,6 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   files: "Files",
 };
 
-/** Predicates centralizing "should this section render" logic. */
 export const has = {
   experience: (d: LayoutData) => d.experience.length > 0,
   education: (d: LayoutData) => d.education.length > 0,
@@ -109,11 +121,10 @@ export const has = {
   leetcode: (d: LayoutData) => !!d.leetcode,
   devto: (d: LayoutData) => !!d.devto,
   huggingface: (d: LayoutData) => !!d.huggingface,
-  // "Writing" currently means Dev.to. (Hashnode was removed when they moved
-  // their API to a paid plan in May 2026.) Umbrella name kept so more writing
-  // platforms can slot in later without renaming the section.
   writing: (d: LayoutData) => !!d.devto,
-  projects: (d: LayoutData) => d.projectImages.length > 0,
+  // Now: a project counts if it has a title (we drop title-less rows at the
+  // API boundary, so any project in `projects` is a real one).
+  projects: (d: LayoutData) => d.projects.length > 0,
   links: (d: LayoutData) => d.customLinks.length > 0,
   files: (d: LayoutData) => !!d.resumeCloudinaryId || d.files.length > 0,
   socials: (d: LayoutData) =>
@@ -126,10 +137,8 @@ export const has = {
     ),
 };
 
-/** Compute which section keys to render for a given user. */
 export function sectionsFor(d: LayoutData): SectionKey[] {
   const s: SectionKey[] = [];
-  // Experience/education/skills lead — they're the "portfolio backbone".
   if (has.experience(d)) s.push("experience");
   if (has.education(d)) s.push("education");
   if (has.skills(d)) s.push("skills");

@@ -42,7 +42,22 @@ export default async function EditorPage() {
         skills: profile.skills ?? [],
         resumeCloudinaryId: profile.resumeCloudinaryId ?? "",
         files: profile.files ?? [],
-        projectImages: profile.projectImages ?? [],
+        // Projects replaces the legacy projectImages flat gallery.
+        // Normalize optional fields from Mongo (which come back as undefined)
+        // to the concrete shape react-hook-form's defaultValues expects.
+        projects: (profile.projects ?? []).map((p) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description ?? "",
+          role: p.role ?? "",
+          year: p.year ?? "",
+          demoUrl: p.demoUrl ?? "",
+          sourceUrl: p.sourceUrl ?? "",
+          videoUrl: p.videoUrl ?? "",
+          tech: p.tech ?? [],
+          images: p.images ?? [],
+          featured: p.featured ?? false,
+        })),
         theme: profile.theme,
         layout: profile.layout,
       }}

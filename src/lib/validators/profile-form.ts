@@ -2,31 +2,14 @@ import { z } from "zod";
 import { slugSchema, themeIdSchema, layoutIdSchema, SocialsSchema } from "./profile";
 
 /*
- * The editor is a structured FORM, not a section-builder.
- * The user fills these fields; we translate to the underlying section array
- * at save time. This keeps the persistence layer flexible (sections can be
- * reordered, new section types can be added) while presenting the user with
- * a much simpler "fill in the blanks" UX.
- *
- * The form is intentionally flat. Adding a new field here means:
- *   1. Add it to the schema
- *   2. Add it to the form UI
- *   3. Add a renderer for it on the public page
- * No section juggling required.
+ * Editor form schema. Maps 1:1 onto the EditorForm UI. The API normalizes
+ * (drops empty rows etc.) before persisting.
  */
 
 const handleSchema = z
   .string()
   .trim()
   .max(40)
-  .optional()
-  .or(z.literal(""));
-
-const urlSchema = z
-  .string()
-  .trim()
-  .url("Must be a valid URL")
-  .max(500)
   .optional()
   .or(z.literal(""));
 
@@ -61,17 +44,54 @@ export const UploadedFileSchema = z.object({
   bytes: z.number().int().nonnegative(),
 });
 
+// A single image inside a project's gallery.
 export const ProjectImageSchema = z.object({
   id: z.string().min(1).max(64),
-  caption: z.string().trim().max(140).optional().or(z.literal("")),
   publicId: z.string().min(1).max(200),
+  caption: z.string().trim().max(140).optional().or(z.literal("")),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
 });
 
-// Work-experience entry. Summary cap was 400; bumped to 1500 because real
-// resume bullet sets are routinely longer than 400 chars (especially after
-// the parser concatenates multiple bullets into one summary blob).
+// A URL that's either empty (placeholder) or a real http(s) URL. Used by
+// the per-project demo/source/video link fields, which are all optional.
+const optionalUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .optional()
+  .or(z.literal(""))
+  .refine(
+    (v) => {
+      if (!v) return true;
+      try {
+        const u = new URL(v);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Must be a valid http(s) URL" },
+  );
+
+// A project record. `title` is the only required field — everything else can
+// be filled in over time. Empty title means an empty placeholder row from the
+// editor, which the API normalize step drops (same pattern as customLinks /
+// experience).
+export const ProjectSchema = z.object({
+  id: z.string().min(1).max(64),
+  title: z.string().trim().max(120),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  role: z.string().trim().max(80).optional().or(z.literal("")),
+  year: z.string().trim().max(20).optional().or(z.literal("")),
+  demoUrl: optionalUrl,
+  sourceUrl: optionalUrl,
+  videoUrl: optionalUrl,
+  tech: z.array(z.string().trim().max(40)).max(20).default([]),
+  images: z.array(ProjectImageSchema).max(12).default([]),
+  featured: z.boolean().default(false),
+});
+
 export const ExperienceSchema = z.object({
   id: z.string().min(1).max(64),
   company: z.string().trim().max(120),
@@ -95,8 +115,6 @@ export const ProfileFormSchema = z.object({
     .max(200, "Keep it under 200 chars")
     .optional()
     .or(z.literal("")),
-  // Bio cap was 500; bumped to 1500 to match the experience summary limit.
-  // Allows a real paragraph of context, not just a one-liner.
   bio: z
     .string()
     .trim()
@@ -122,7 +140,10 @@ export const ProfileFormSchema = z.object({
 
   resumeCloudinaryId: z.string().max(200).optional().or(z.literal("")),
   files: z.array(UploadedFileSchema).max(10).default([]),
-  projectImages: z.array(ProjectImageSchema).max(12).default([]),
+
+  // Projects: up to 20 structured project records (replaces the old
+  // projectImages flat gallery).
+  projects: z.array(ProjectSchema).max(20).default([]),
 
   theme: themeIdSchema.default("mono"),
   layout: layoutIdSchema.default("sidebar"),

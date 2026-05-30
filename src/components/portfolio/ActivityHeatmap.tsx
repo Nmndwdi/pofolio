@@ -1,27 +1,22 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 /*
  * ActivityHeatmap — shared full-year heatmap used by GitHub, LeetCode, and
- * Codeforces sections. Replaces the previous three near-identical 26-week
- * grids that looked cramped vs. the platforms' own heatmaps.
+ * Codeforces sections.
  *
- * What this gives you (matching the visual richness of leetcode.com /
- * codeforces.com / github.com profiles):
- *  - 53-week full-year grid (not 26)
- *  - Month labels along the top
- *  - Day-of-week labels (Mon/Wed/Fri) on the left
- *  - Stats line: total / active days / max streak
- *  - Inline hex fills (no CSS variables in SVG — that approach burned us
- *    three times in this conversation)
- *  - Responsive: SVG stretches to container via viewBox + width="100%"
+ * Features:
+ *  - 53-week full-year grid, month labels on top, Mon/Wed/Fri on left.
+ *  - Stats line: total / active days / max streak (computed from the
+ *    visible window so they match what's on screen).
+ *  - Year selector: derives the set of years present in `data` and lets
+ *    the user switch. Defaults to the year of the most recent activity.
+ *  - Inline hex fills (CSS variables in SVG fills broke us three times).
+ *  - Responsive: SVG stretches via viewBox + width="100%".
  *
  * Palette is per-platform (passed in), so GitHub stays green, LeetCode is
- * orange, Codeforces is blue — matching the source.
- *
- * `endDate` defaults to today; pass an earlier date to render a previous
- * year (useful when we add a year selector later).
+ * orange, Codeforces is blue.
  */
 
 export interface HeatmapDay {
@@ -30,28 +25,22 @@ export interface HeatmapDay {
 }
 
 export interface HeatmapPalette {
-  // 5 colors: empty, low, med-low, med-high, high.
   empty: string;
-  scale: [string, string, string, string]; // 4 active levels
+  scale: [string, string, string, string];
 }
 
 interface Props {
   data: HeatmapDay[];
   palette: HeatmapPalette;
-  /** Label like "submissions" / "contributions" — used in tooltip + stats. */
   itemLabel: string;
-  /** Optional title; if omitted, no header rendered. */
   title?: string;
-  /** End of the window. Defaults to "today" in local UTC. */
-  endDate?: Date;
 }
 
-// SVG units. Cells stretch via width="100%" + viewBox.
 const CELL = 13;
 const SIZE = 11;
 const MONTH_LABEL_H = 14;
 const DAY_LABEL_W = 28;
-const WEEKS = 53; // full year
+const WEEKS = 53;
 
 function bucketFor(count: number, scale: number): 0 | 1 | 2 | 3 | 4 {
   if (count === 0) return 0;
@@ -62,52 +51,53 @@ function bucketFor(count: number, scale: number): 0 | 1 | 2 | 3 | 4 {
   return 1;
 }
 
-function colorFor(
-  count: number,
-  scale: number,
-  palette: HeatmapPalette,
-): string {
+function colorFor(count: number, scale: number, palette: HeatmapPalette): string {
   const b = bucketFor(count, scale);
   if (b === 0) return palette.empty;
   return palette.scale[b - 1];
 }
 
 const MONTH_NAMES = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-export function ActivityHeatmap({
-  data,
-  palette,
-  itemLabel,
-  title,
-  endDate,
-}: Props) {
-  // useMemo guards against rebuilding the grid on every parent re-render,
-  // which matters because we walk 371 cells.
+export function ActivityHeatmap({ data, palette, itemLabel, title }: Props) {
+  // Year selector: derive available years from data. Show years that
+  // actually have data (no empty year slots). Default to most recent.
+  const availableYears = useMemo(() => {
+    const set = new Set<number>();
+    for (const d of data) {
+      const y = Number(d.date.slice(0, 4));
+      if (Number.isFinite(y)) set.add(y);
+    }
+    if (set.size === 0) set.add(new Date().getUTCFullYear());
+    return [...set].sort((a, b) => b - a);
+  }, [data]);
+
+  const [selectedYear, setSelectedYear] = useState<number>(() => availableYears[0]);
+
+  // Window the heatmap to end on Dec 31 of the selected year, unless that
+  // year is the current year — then end on today (so the grid doesn't show
+  // empty future months).
+  const endDate = useMemo(() => {
+    const now = new Date();
+    now.setUTCHours(0, 0, 0, 0);
+    if (selectedYear === now.getUTCFullYear()) return now;
+    const yearEnd = new Date(Date.UTC(selectedYear, 11, 31));
+    return yearEnd;
+  }, [selectedYear]);
+
   const { columns, stats, monthLabels, scale } = useMemo(() => {
     const counts = new Map(data.map((d) => [d.date, d.count]));
 
-    const today = endDate ? new Date(endDate) : new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const dayOfWeek = today.getUTCDay();
-    const lastSunday = new Date(today);
-    lastSunday.setUTCDate(today.getUTCDate() - dayOfWeek);
+    const end = new Date(endDate);
+    end.setUTCHours(0, 0, 0, 0);
+    const dayOfWeek = end.getUTCDay();
+    const lastSunday = new Date(end);
+    lastSunday.setUTCDate(end.getUTCDate() - dayOfWeek);
 
-    // Build columns oldest → newest, exactly WEEKS columns.
     const columns: Array<Array<{ date: string; count: number } | null>> = [];
-    // Month-label positions: track the first column where each new month starts.
     const monthLabels: Array<{ x: number; label: string }> = [];
     let prevMonth = -1;
 
@@ -117,8 +107,6 @@ export function ActivityHeatmap({
       firstCellOfCol.setUTCDate(lastSunday.getUTCDate() - w * 7);
       const m = firstCellOfCol.getUTCMonth();
       if (m !== prevMonth) {
-        // Don't crowd: only label if this is past the leftmost ~3 columns of
-        // the previous label, otherwise the labels overlap.
         const colIdx = WEEKS - 1 - w;
         const lastLabelX = monthLabels.length
           ? monthLabels[monthLabels.length - 1].x
@@ -131,7 +119,7 @@ export function ActivityHeatmap({
       for (let d = 0; d < 7; d++) {
         const cell = new Date(lastSunday);
         cell.setUTCDate(lastSunday.getUTCDate() - w * 7 + d);
-        if (cell > today) {
+        if (cell > end) {
           col.push(null);
           continue;
         }
@@ -141,14 +129,10 @@ export function ActivityHeatmap({
       columns.push(col);
     }
 
-    // Stats. We only count days in the visible window so they line up with
-    // what the grid shows.
     let total = 0;
     let activeDays = 0;
     let maxStreak = 0;
     let cur = 0;
-    // Walk the grid in chronological order (column by column, each top→bottom
-    // is Sunday→Saturday).
     for (const col of columns) {
       for (const cell of col) {
         if (!cell) continue;
@@ -166,17 +150,11 @@ export function ActivityHeatmap({
     const observedMax = Math.max(0, ...data.map((d) => d.count));
     const scale = Math.max(4, observedMax);
 
-    return {
-      columns,
-      monthLabels,
-      stats: { total, activeDays, maxStreak },
-      scale,
-    };
+    return { columns, monthLabels, stats: { total, activeDays, maxStreak }, scale };
   }, [data, endDate]);
 
   if (data.length === 0) return null;
 
-  // SVG dimensions in viewBox units.
   const gridW = WEEKS * CELL;
   const gridH = 7 * CELL;
   const vbW = DAY_LABEL_W + gridW;
@@ -184,33 +162,49 @@ export function ActivityHeatmap({
 
   return (
     <div className="space-y-3">
-      {title && (
-        <div className="flex items-baseline justify-between gap-4">
-          <div className="text-sm font-medium text-p-fg">{title}</div>
-          <div className="text-xs text-p-fg-subtle">
-            <span className="text-p-fg">{stats.total.toLocaleString()}</span>{" "}
-            {itemLabel} ·{" "}
-            <span className="text-p-fg">{stats.activeDays}</span> active days
-            {stats.maxStreak > 1 && (
-              <>
-                {" "}
-                · max streak{" "}
-                <span className="text-p-fg">{stats.maxStreak}</span>
-              </>
-            )}
-          </div>
+      {/* Header: title + year selector + stats */}
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          {title && <div className="text-sm font-medium text-p-fg">{title}</div>}
+          {availableYears.length > 1 && (
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              // Native <select> — no client framework needed, no styling
+              // surprises across themes. Keep it minimal.
+              className="rounded border border-p-border bg-p-surface px-2 py-0.5 text-xs text-p-fg"
+              aria-label="Select year"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-      )}
+        <div className="text-xs text-p-fg-subtle">
+          <span className="text-p-fg">{stats.total.toLocaleString()}</span>{" "}
+          {itemLabel} ·{" "}
+          <span className="text-p-fg">{stats.activeDays}</span> active days
+          {stats.maxStreak > 1 && (
+            <>
+              {" "}· max streak{" "}
+              <span className="text-p-fg">{stats.maxStreak}</span>
+            </>
+          )}
+        </div>
+      </div>
+
       <svg
         width="100%"
         height="auto"
         viewBox={`0 0 ${vbW} ${vbH}`}
         preserveAspectRatio="xMinYMin meet"
         role="img"
-        aria-label={`${title ?? itemLabel} heatmap`}
+        aria-label={`${title ?? itemLabel} heatmap for ${selectedYear}`}
         style={{ maxWidth: "100%", display: "block", overflow: "visible" }}
       >
-        {/* Month labels */}
         {monthLabels.map(({ x, label }) => (
           <text
             key={`m-${x}-${label}`}
@@ -223,7 +217,6 @@ export function ActivityHeatmap({
             {label}
           </text>
         ))}
-        {/* Day-of-week labels (Mon/Wed/Fri only — avoids crowding) */}
         {(["Mon", "Wed", "Fri"] as const).map((label, i) => {
           const dayIdx = i === 0 ? 1 : i === 1 ? 3 : 5;
           return (
@@ -239,7 +232,6 @@ export function ActivityHeatmap({
             </text>
           );
         })}
-        {/* Cells */}
         <g transform={`translate(${DAY_LABEL_W}, ${MONTH_LABEL_H})`}>
           {columns.map((col, x) =>
             col.map((cell, y) =>
@@ -253,7 +245,7 @@ export function ActivityHeatmap({
                   rx={2}
                   style={{ fill: colorFor(cell.count, scale, palette) }}
                 >
-                  <title>{`${cell.count} ${itemLabel}${cell.count === 1 ? "" : ""} on ${cell.date}`}</title>
+                  <title>{`${cell.count} ${itemLabel} on ${cell.date}`}</title>
                 </rect>
               ) : null,
             ),
@@ -264,19 +256,15 @@ export function ActivityHeatmap({
   );
 }
 
-// ─── Per-platform palettes ──────────────────────────────────────────────────
-// Hand-picked to match each platform's actual visual identity.
-
+// Per-platform palettes — match each platform's actual visual identity.
 export const PALETTE_GITHUB: HeatmapPalette = {
   empty: "#ebedf0",
   scale: ["#9be9a8", "#40c463", "#30a14e", "#216e39"],
 };
-
 export const PALETTE_LEETCODE: HeatmapPalette = {
   empty: "#ebedf0",
   scale: ["#ffd285", "#ffa116", "#e69100", "#a36600"],
 };
-
 export const PALETTE_CODEFORCES: HeatmapPalette = {
   empty: "#ebedf0",
   scale: ["#c6dbef", "#6baed6", "#3182bd", "#08519c"],

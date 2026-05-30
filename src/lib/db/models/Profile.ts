@@ -37,9 +37,6 @@ export interface ProfileDoc {
   layout: LayoutId;
   socials?: Socials;
 
-  // Coding handles — stored directly on the profile rather than as sections.
-  // The form treats them as flat fields; the public-page renderer reads them
-  // and (in step 2) fetches live data from each platform's API.
   github?: string;
   leetcode?: string;
   codeforces?: string;
@@ -47,12 +44,8 @@ export interface ProfileDoc {
   hashnode?: string;
   huggingface?: string;
 
-  // User-provided links beyond the standard socials. Each has a label + url.
-  // Rendered as a "Links" section on the public page.
   customLinks?: Array<{ id: string; label: string; url: string }>;
 
-  // Uploaded artifacts — Cloudinary public_ids, not URLs.
-  // URLs are derived at render time via lib/cloudinary.ts deriveUrl().
   resumeCloudinaryId?: string;
   files?: Array<{
     id: string;
@@ -62,16 +55,30 @@ export interface ProfileDoc {
     format: string;
     bytes: number;
   }>;
-  projectImages?: Array<{
+
+  // Projects — structured records, not just images. Each project has a title,
+  // description, role/year, demo/source/video links, a gallery of images, and
+  // a tech-stack list. Replaces the old `projectImages` flat gallery.
+  projects?: Array<{
     id: string;
-    caption?: string;
-    publicId: string;
-    width?: number;
-    height?: number;
+    title: string;
+    description?: string;
+    role?: string;
+    year?: string;
+    demoUrl?: string;
+    sourceUrl?: string;
+    videoUrl?: string;
+    tech?: string[];
+    images?: Array<{
+      id: string;
+      publicId: string;
+      caption?: string;
+      width?: number;
+      height?: number;
+    }>;
+    featured?: boolean;
   }>;
 
-  // Resume-derived structured content. Populated by the resume parser,
-  // then editable. Rendered as Experience / Education / Skills sections.
   experience?: Array<{
     id: string;
     company: string;
@@ -87,15 +94,12 @@ export interface ProfileDoc {
   }>;
   skills?: string[];
 
-  // Sections are validated by Zod before save; type is the union from there.
-  // Kept for future use (e.g. file uploads, galleries) — not used in step 1.
   sections: Section[];
   isPublic: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// Schema.Types.Mixed === any. We type-narrow at the API boundary with Zod.
 const sectionShape = { type: Schema.Types.Mixed, required: true };
 
 const profileSchema = new Schema<ProfileDoc>(
@@ -104,11 +108,10 @@ const profileSchema = new Schema<ProfileDoc>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true, // one profile per user (today)
+      unique: true,
       index: true,
     },
 
-    // The public URL fragment: pofolio.vercel.app/p/<slug>
     slug: {
       type: String,
       required: true,
@@ -121,27 +124,25 @@ const profileSchema = new Schema<ProfileDoc>(
     },
 
     displayName: { type: String, required: true, trim: true, maxlength: 60 },
-    headline: { type: String, trim: true, maxlength: 120 },
-    bio: { type: String, trim: true, maxlength: 500 },
+    // Headline cap bumped from 120 to 200 (matches the validator).
+    headline: { type: String, trim: true, maxlength: 200 },
+    // Bio cap bumped from 500 to 1500 (matches the validator).
+    bio: { type: String, trim: true, maxlength: 1500 },
 
     avatarCloudinaryId: { type: String, maxlength: 200 },
 
-    // Theme = visual treatment. "minimal" is a legacy value mapped to "mono"
-    // at read time by resolveTheme() in lib/theme.ts.
     theme: {
       type: String,
       enum: ["mono", "paper", "terminal", "glass", "minimal"],
       default: "mono",
     },
 
-    // Layout = page structure. Orthogonal to theme — any combination works.
     layout: {
       type: String,
       enum: ["sidebar", "single", "multipage", "grid"],
       default: "sidebar",
     },
 
-    // Header social handles (separate from sections — see profile.ts validator)
     socials: {
       github: String,
       linkedin: String,
@@ -150,7 +151,6 @@ const profileSchema = new Schema<ProfileDoc>(
       email: String,
     },
 
-    // Coding handles. Validated upstream by Zod; stored as plain strings here.
     github: { type: String, trim: true, maxlength: 40 },
     leetcode: { type: String, trim: true, maxlength: 40 },
     codeforces: { type: String, trim: true, maxlength: 40 },
@@ -158,11 +158,10 @@ const profileSchema = new Schema<ProfileDoc>(
     hashnode: { type: String, trim: true, maxlength: 40 },
     huggingface: { type: String, trim: true, maxlength: 40 },
 
-    // Custom links — { id, label, url } objects, validated upstream.
     customLinks: {
       type: [
         {
-          _id: false, // we use our own `id`
+          _id: false,
           id: { type: String, required: true },
           label: { type: String, required: true },
           url: { type: String, required: true },
@@ -171,9 +170,6 @@ const profileSchema = new Schema<ProfileDoc>(
       default: [],
     },
 
-    // Uploaded artifacts. Each entry stores Cloudinary's public_id; URLs are
-    // derived at render time so transformations can change without rewriting
-    // the DB. See lib/cloudinary.ts.
     resumeCloudinaryId: { type: String, maxlength: 200 },
 
     files: {
@@ -195,21 +191,42 @@ const profileSchema = new Schema<ProfileDoc>(
       default: [],
     },
 
-    projectImages: {
+    // Structured projects. Each project bundles its own image gallery, links,
+    // and tech stack — far richer than the previous flat `projectImages` list.
+    // No migration concerns (pre-v1, no real users yet); we're just dropping
+    // the old field outright.
+    projects: {
       type: [
         {
           _id: false,
           id: { type: String, required: true },
-          caption: { type: String },
-          publicId: { type: String, required: true },
-          width: { type: Number },
-          height: { type: Number },
+          title: { type: String, required: true, trim: true, maxlength: 120 },
+          description: { type: String, trim: true, maxlength: 2000 },
+          role: { type: String, trim: true, maxlength: 80 },
+          year: { type: String, trim: true, maxlength: 20 },
+          demoUrl: { type: String, trim: true, maxlength: 500 },
+          sourceUrl: { type: String, trim: true, maxlength: 500 },
+          videoUrl: { type: String, trim: true, maxlength: 500 },
+          tech: { type: [String], default: [] },
+          images: {
+            type: [
+              {
+                _id: false,
+                id: { type: String, required: true },
+                publicId: { type: String, required: true },
+                caption: { type: String, trim: true, maxlength: 140 },
+                width: { type: Number },
+                height: { type: Number },
+              },
+            ],
+            default: [],
+          },
+          featured: { type: Boolean, default: false },
         },
       ],
       default: [],
     },
 
-    // Resume-derived structured content. Populated by the parser, editable.
     experience: {
       type: [
         {
@@ -218,7 +235,8 @@ const profileSchema = new Schema<ProfileDoc>(
           company: { type: String, default: "" },
           role: { type: String, default: "" },
           dates: { type: String, default: "" },
-          summary: { type: String, default: "" },
+          // Summary cap bumped to match the new validator's 1500.
+          summary: { type: String, default: "", maxlength: 1500 },
         },
       ],
       default: [],
@@ -237,18 +255,31 @@ const profileSchema = new Schema<ProfileDoc>(
     },
     skills: { type: [String], default: [] },
 
-    // Discriminated-union sections; validated upstream.
     sections: { type: [sectionShape], default: [] },
 
-    // Whole-portfolio kill switch. A logged-out visitor sees a 404 if false.
     isPublic: { type: Boolean, default: true, index: true },
   },
   { timestamps: true },
 );
 
-// Compound index for the public lookup hot path.
-// Public page does: Profile.findOne({ slug, isPublic: true }).
 profileSchema.index({ slug: 1, isPublic: 1 });
+
+// Text index for global search on the home page. Weights tilt heavily toward
+// displayName and slug — those are how someone usually searches for a
+// person — with headline + bio as secondary matches. Mongo's text index is
+// language-aware (English stemming/stopwords); fine for v1.
+profileSchema.index(
+  {
+    displayName: "text",
+    slug: "text",
+    headline: "text",
+    bio: "text",
+  },
+  {
+    weights: { displayName: 10, slug: 8, headline: 4, bio: 1 },
+    name: "profile_text_search",
+  },
+);
 
 export const Profile: Model<ProfileDoc> =
   (models.Profile as Model<ProfileDoc>) ??

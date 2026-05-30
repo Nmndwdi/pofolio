@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { QRSculptureClient } from "@/components/qr/QRSculptureClient";
+import { HomeSearch } from "@/components/home/HomeSearch";
 
 /*
  * Landing page.
@@ -56,7 +57,20 @@ export default async function HomePage() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 pb-24 pt-16 sm:px-10 sm:pt-24">
+      <main className="mx-auto max-w-6xl px-6 pb-24 pt-12 sm:px-10 sm:pt-16">
+        {/* ─── Search row — top of page ─────────────────────────────────
+            Promoted to the top so visitors can find an existing Pofolio
+            without scrolling past the hero. Editorial styling matches the
+            page's paper/ink palette. */}
+        <section className="mb-16 sm:mb-20">
+          <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-ink/60">
+            find someone
+          </p>
+          <div className="max-w-2xl">
+            <HomeSearch />
+          </div>
+        </section>
+
         <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
           {/* ─── Editorial left column ────────────────────────────────── */}
           <div className="max-w-xl">

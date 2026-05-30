@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import {
 import { FileUpload } from "@/components/editor/FileUpload";
 import { MultiFileUpload } from "@/components/editor/MultiFileUpload";
 import { useEditorDraft } from "@/hooks/useEditorDraft";
+import { ProjectsEditor } from "./ProjectsEditor";
 import { clientPreviewUrl } from "@/lib/uploadClient";
 import type { UploadedAsset } from "@/lib/uploadClient";
 
@@ -43,6 +44,12 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
 
   const { slug, ...formInitial } = initial;
 
+  // Expose the whole `methods` object so FormProvider (below) can pass it
+  // through to child components like <ProjectsEditor /> which use useFormContext.
+  const methods = useForm<ProfileFormInput>({
+    resolver: zodResolver(ProfileFormSchema),
+    defaultValues: formInitial,
+  });
   const {
     register,
     control,
@@ -53,10 +60,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
     getValues,
     reset,
     formState: { errors, isDirty },
-  } = useForm<ProfileFormInput>({
-    resolver: zodResolver(ProfileFormSchema),
-    defaultValues: formInitial,
-  });
+  } = methods;
 
   // Draft persistence — survive reloads with unsaved edits.
   const { hasDraft, restoreDraft, discardDraft, clearDraft } = useEditorDraft({
@@ -311,6 +315,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
   const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/p/${slug}`;
 
   return (
+    <FormProvider {...methods}>
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="mx-auto max-w-2xl space-y-10 pb-24">
       {/* Top bar — slug, view-public link, save */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
@@ -797,63 +802,10 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
         </Field>
 
         <Field
-          label="Project images"
-          hint="Up to 12 images. Screenshots, demos, anything visual."
+          label="Projects"
+          hint="Each project: title, description, links, gallery, tech stack. Up to 20."
         >
-          <Controller
-            name="projectImages"
-            control={control}
-            render={({ field }) => (
-              <MultiFileUpload
-                kind="project"
-                items={field.value}
-                maxItems={12}
-                maxBytes={10 * 1024 * 1024}
-                accept="image/*"
-                cta="Add image"
-                toItem={(asset, id) => ({
-                  id,
-                  caption: "",
-                  publicId: asset.publicId,
-                  width: asset.width,
-                  height: asset.height,
-                })}
-                onChange={field.onChange}
-                renderItem={(item, onRemove) => (
-                  <div className="flex items-center gap-3 rounded-md border bg-card px-3 py-2 text-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={clientPreviewUrl(item.publicId, "w_96,h_64,c_fill,f_auto,q_auto")}
-                      alt=""
-                      className="h-10 w-16 rounded object-cover"
-                    />
-                    <input
-                      value={item.caption ?? ""}
-                      onChange={(e) => {
-                        field.onChange(
-                          field.value.map((p) =>
-                            p.id === item.id
-                              ? { ...p, caption: e.target.value }
-                              : p,
-                          ),
-                        );
-                      }}
-                      placeholder="Caption (optional)"
-                      className="input h-8 flex-1 text-sm"
-                      maxLength={140}
-                    />
-                    <button
-                      type="button"
-                      onClick={onRemove}
-                      className="text-xs text-muted-foreground hover:text-destructive"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              />
-            )}
-          />
+          <ProjectsEditor />
         </Field>
       </Group>
 
@@ -952,6 +904,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
         </div>
       </div>
     </form>
+    </FormProvider>
   );
 }
 

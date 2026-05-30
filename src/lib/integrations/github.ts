@@ -149,10 +149,16 @@ async function ghFetch(path: string): Promise<Response> {
  */
 const GITHUB_GRAPHQL = "https://api.github.com/graphql";
 
+// GitHub's contributionsCollection accepts `from`/`to` ISO datetimes, but
+// the range cannot exceed 1 year. So to render past years we issue one query
+// per year and merge. 5 years back is a reasonable default — covers most
+// students' full coding history without hammering the API.
+const YEARS_BACK = 5;
+
 const CONTRIBUTIONS_QUERY = `
-  query($login: String!) {
+  query($login: String!, $from: DateTime!, $to: DateTime!) {
     user(login: $login) {
-      contributionsCollection {
+      contributionsCollection(from: $from, to: $to) {
         contributionCalendar {
           totalContributions
           weeks {
@@ -186,6 +192,52 @@ interface ContribResponse {
   errors?: Array<{ message: string }>;
 }
 
+async function fetchContributionsForRange(
+  username: string,
+  from: Date,
+  to: Date,
+): Promise<{ total: number; days: Array<{ date: string; count: number }> } | null> {
+  const res = await fetch(GITHUB_GRAPHQL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: CONTRIBUTIONS_QUERY,
+      variables: {
+        login: username,
+        from: from.toISOString(),
+        to: to.toISOString(),
+      },
+    }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    console.warn(`[github] contributions GraphQL HTTP ${res.status}`);
+    return null;
+  }
+
+  const json = (await res.json()) as ContribResponse;
+  if (json.errors?.length) {
+    console.warn(`[github] contributions GraphQL: ${json.errors[0].message}`);
+    return null;
+  }
+
+  const cal = json.data?.user?.contributionsCollection.contributionCalendar;
+  if (!cal) return null;
+
+  const days = cal.weeks.flatMap((w) =>
+    w.contributionDays.map((d) => ({
+      date: d.date,
+      count: d.contributionCount,
+    })),
+  );
+
+  return { total: cal.totalContributions, days };
+}
+
 async function fetchContributions(
   username: string,
 ): Promise<GitHubData["contributions"]> {
@@ -193,41 +245,39 @@ async function fetchContributions(
   if (!process.env.GITHUB_TOKEN) return null;
 
   try {
-    const res = await fetch(GITHUB_GRAPHQL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: CONTRIBUTIONS_QUERY,
-        variables: { login: username },
-      }),
-      cache: "no-store",
-    });
+    // Fetch in parallel — one query per year, going back YEARS_BACK years.
+    // GraphQL accepts up to 1-year ranges per contributionsCollection, so
+    // we slice by calendar year. We always include the current year.
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
 
-    if (!res.ok) {
-      console.warn(`[github] contributions GraphQL HTTP ${res.status}`);
-      return null;
+    const ranges: Array<{ from: Date; to: Date }> = [];
+    for (let yearsAgo = YEARS_BACK; yearsAgo >= 0; yearsAgo--) {
+      const y = currentYear - yearsAgo;
+      // For past years: full Jan 1 – Dec 31. For the current year: up to today.
+      const from = new Date(Date.UTC(y, 0, 1, 0, 0, 0));
+      const to =
+        y === currentYear ? now : new Date(Date.UTC(y, 11, 31, 23, 59, 59));
+      ranges.push({ from, to });
     }
 
-    const json = (await res.json()) as ContribResponse;
-    if (json.errors?.length) {
-      console.warn(`[github] contributions GraphQL: ${json.errors[0].message}`);
-      return null;
-    }
-
-    const cal = json.data?.user?.contributionsCollection.contributionCalendar;
-    if (!cal) return null;
-
-    const days = cal.weeks.flatMap((w) =>
-      w.contributionDays.map((d) => ({
-        date: d.date,
-        count: d.contributionCount,
-      })),
+    const results = await Promise.all(
+      ranges.map((r) => fetchContributionsForRange(username, r.from, r.to)),
     );
 
-    return { total: cal.totalContributions, days };
+    // Merge non-null results. Days are unique per date so concatenation is
+    // safe; sort to keep chronological order across the merged span.
+    const allDays: Array<{ date: string; count: number }> = [];
+    let total = 0;
+    for (const r of results) {
+      if (!r) continue;
+      allDays.push(...r.days);
+      total += r.total;
+    }
+    if (allDays.length === 0) return null;
+    allDays.sort((a, b) => a.date.localeCompare(b.date));
+
+    return { total, days: allDays };
   } catch (err) {
     console.warn(`[github] contributions fetch failed:`, err);
     return null;
@@ -337,8 +387,8 @@ export async function getGitHubData(
 ): Promise<CachedResult<GitHubData> | null> {
   const handleLower = username.trim().toLowerCase();
   if (!handleLower) return null;
-  // Cache-key version suffix. v2: added `contributions` (GraphQL calendar).
-  const key = `${handleLower}:v2`;
+  // Cache-key version suffix. v3: contributions now spans 5 years (multi-year fetch).
+  const key = `${handleLower}:v3`;
 
   try {
     return await getOrFetch<GitHubData>({

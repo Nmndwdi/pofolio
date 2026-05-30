@@ -102,7 +102,7 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
     skills: profile.skills ?? [],
     resumeCloudinaryId: profile.resumeCloudinaryId ?? undefined,
     files: profile.files ?? [],
-    projectImages: profile.projectImages ?? [],
+    projects: profile.projects ?? [],
   };
 
   const layout = resolveLayout(profile.layout);

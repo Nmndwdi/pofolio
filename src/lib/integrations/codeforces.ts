@@ -165,21 +165,21 @@ async function fetchCodeforcesFresh(handle: string): Promise<CodeforcesData> {
     rating: c.newRating,
   }));
 
-  // 3. user.status — recent submissions, bucketed by date for a heatmap.
-  //    The API returns newest-first; we ask for 500 (≈ a few months for an
-  //    active user). Non-fatal: if this errors, heatmap is just empty.
+  // 3. user.status — recent submissions, bucketed by date for the activity
+  //    heatmap. We fetch up to 5000 submissions and keep them ALL (not just
+  //    the last 6 months) so the year selector has multiple years to choose
+  //    from. 5000 is a soft cap that covers very active users without
+  //    bloating the cache payload.
+  //
+  //    Non-fatal: if this errors, heatmap is just empty.
   let submissionHeatmap: Array<{ date: string; count: number }> = [];
   try {
     const statusRes = await cfFetch<RawSubmission[]>(
-      `/user.status?handle=${encodeURIComponent(handle)}&from=1&count=500`,
+      `/user.status?handle=${encodeURIComponent(handle)}&from=1&count=5000`,
     );
     if (statusRes.status === "OK" && Array.isArray(statusRes.result)) {
-      // Bucket submissions by YYYY-MM-DD (UTC). Keep only the last ~26 weeks
-      // worth — anything older won't be shown in the heatmap anyway.
-      const cutoff = Date.now() / 1000 - 26 * 7 * 24 * 60 * 60;
       const byDay = new Map<string, number>();
       for (const sub of statusRes.result) {
-        if (sub.creationTimeSeconds < cutoff) continue;
         const date = new Date(sub.creationTimeSeconds * 1000)
           .toISOString()
           .slice(0, 10);
@@ -226,8 +226,8 @@ export async function getCodeforcesData(
   // Cache-key version suffix. Bump when the CodeforcesData shape changes so
   // old cached rows (missing newer fields like `submissionHeatmap`) aren't
   // served back to UI code that now reads those fields. v2: added
-  // `submissionHeatmap` derived from user.status.
-  const key = `${handle.trim().toLowerCase()}:v2`;
+  // v3: fetch 5000 submissions, keep all years (was 500, capped to 6 months).
+  const key = `${handle.trim().toLowerCase()}:v3`;
   if (!handle.trim()) return null;
 
   try {
