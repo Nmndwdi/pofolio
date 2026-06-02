@@ -198,7 +198,9 @@ export function ActivityHeatmap({ data, palette, itemLabel, title }: Props) {
 
       <svg
         width="100%"
-        height="auto"
+        // `height` is intentionally omitted — `height="auto"` is invalid for
+        // SVG (it's an HTML CSS value, not an SVG attribute). The element
+        // sizes from `width: 100%` × `viewBox` aspect ratio automatically.
         viewBox={`0 0 ${vbW} ${vbH}`}
         preserveAspectRatio="xMinYMin meet"
         role="img"

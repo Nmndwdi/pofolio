@@ -108,8 +108,12 @@ export function CodeforcesRatingChart({ data }: { data: RatingPoint[] }) {
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium text-p-fg">Rating history</div>
-      <div className="h-56 w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+      {/* min-w-0 + min-h-[14rem] guards against the -1 width Recharts bug:
+          inside a flex/grid container the row can collapse to 0 width before
+          first paint, leaving Recharts measuring -1 forever. Explicit
+          min-height prevents the loop while still letting the chart grow. */}
+      <div className="h-56 min-h-[14rem] w-full min-w-[280px]">
+        <ResponsiveContainer width="100%" height="100%" debounce={50}>
           <LineChart data={points} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
             {visibleBands.map(([lo, hi, color]) => (
               <ReferenceArea

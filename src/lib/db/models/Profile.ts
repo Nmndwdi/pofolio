@@ -41,7 +41,6 @@ export interface ProfileDoc {
   leetcode?: string;
   codeforces?: string;
   devto?: string;
-  hashnode?: string;
   huggingface?: string;
 
   customLinks?: Array<{ id: string; label: string; url: string }>;
@@ -155,7 +154,6 @@ const profileSchema = new Schema<ProfileDoc>(
     leetcode: { type: String, trim: true, maxlength: 40 },
     codeforces: { type: String, trim: true, maxlength: 40 },
     devto: { type: String, trim: true, maxlength: 40 },
-    hashnode: { type: String, trim: true, maxlength: 40 },
     huggingface: { type: String, trim: true, maxlength: 40 },
 
     customLinks: {

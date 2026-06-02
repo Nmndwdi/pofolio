@@ -36,7 +36,11 @@ export function SinglePageLayout({ data }: { data: LayoutData }) {
   const sections = sectionsFor(data);
 
   return (
-    <div className="min-h-screen bg-p-bg font-p-body text-p-fg">
+    <div className="p-page-bg min-h-screen font-p-body text-p-fg">
+      {/* Floating action panel — always visible at bottom-right of the
+          viewport. See SidebarLayout for rationale. */}
+      <ExportActions slug={data.slug} />
+
       <main className="mx-auto max-w-2xl px-6 py-16 sm:px-10 sm:py-24">
         <header className="space-y-6">
           {data.avatarCloudinaryId && (
@@ -213,8 +217,7 @@ function SocialsRow({ data }: { data: LayoutData }) {
 
 function Footer({ slug }: { slug: string }) {
   return (
-    <footer className="mt-32 space-y-4 border-t border-p-border pt-8">
-      <ExportActions slug={slug} />
+    <footer className="mt-32 border-t border-p-border pt-8">
       <div className="flex items-center justify-between text-xs text-p-fg-subtle">
         <Link href="/" className="hover:text-p-fg" data-no-print-url>
           Made with Pofolio

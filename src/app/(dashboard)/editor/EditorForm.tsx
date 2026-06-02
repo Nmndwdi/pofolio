@@ -316,7 +316,17 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
 
   return (
     <FormProvider {...methods}>
-    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="mx-auto max-w-2xl space-y-10 pb-24">
+    <form
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      className="mx-auto max-w-2xl space-y-10 pb-24"
+      // suppressHydrationWarning: Edge / Chrome autofill stamps
+      // `fdprocessedid` on form elements before React hydrates. The mismatch
+      // is benign (we'll never see it server-side) but the warning is
+      // noisy. Suppressing on the form covers attribute diffs in direct
+      // children; per-element suppression is added below where the
+      // browser also tags deeply-nested buttons (PickerGrid).
+      suppressHydrationWarning
+    >
       {/* Top bar — slug, view-public link, save */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="text-sm text-muted-foreground">
@@ -834,6 +844,16 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                     desc: "Long single column, no nav",
                   },
                   {
+                    value: "terminal",
+                    label: "Terminal",
+                    desc: "Interactive CLI — type commands to explore",
+                  },
+                  {
+                    value: "brutalist",
+                    label: "Brutalist",
+                    desc: "Massive type, hazard yellow, hard shadows — loud",
+                  },
+                  {
                     value: "multipage",
                     label: "Multi-page",
                     desc: "Top nav, separate pages (coming soon)",
@@ -1115,6 +1135,9 @@ function PickerGrid({
             key={opt.value}
             type="button"
             disabled={opt.disabled}
+            // Browser autofill stamps fdprocessedid on these buttons too;
+            // suppress the noisy false-positive hydration warning.
+            suppressHydrationWarning
             onClick={() => !opt.disabled && onChange(opt.value)}
             className={
               "flex flex-col items-start gap-0.5 rounded-md border p-3 text-left transition-colors " +

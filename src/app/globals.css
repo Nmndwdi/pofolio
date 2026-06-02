@@ -85,6 +85,17 @@
     --p-font-display: var(--font-sans);
     --p-font-body: var(--font-sans);
     --p-font-mono: var(--font-mono);
+    /* Elevation tokens. Light themes use soft drop shadows for depth. */
+    --p-shadow-1: 0 1px 2px hsl(0 0% 0% / 0.04),
+      0 4px 16px -4px hsl(0 0% 0% / 0.06);
+    --p-shadow-2: 0 1px 2px hsl(0 0% 0% / 0.06),
+      0 12px 32px -8px hsl(0 0% 0% / 0.12);
+    --p-card-gradient: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 97%));
+    --p-page-gradient: radial-gradient(
+      ellipse 90% 40% at 50% 0%,
+      hsl(0 0% 96%),
+      transparent 70%
+    );
   }
 
   /* ─── Paper — warm cream, serif display, ink red accent ────── */
@@ -103,6 +114,20 @@
     --p-font-display: var(--font-serif);
     --p-font-body: var(--font-sans);
     --p-font-mono: var(--font-mono);
+    --p-shadow-1: 0 1px 2px hsl(30 30% 20% / 0.06),
+      0 6px 18px -6px hsl(30 30% 20% / 0.10);
+    --p-shadow-2: 0 1px 2px hsl(30 30% 20% / 0.10),
+      0 14px 32px -8px hsl(30 30% 20% / 0.16);
+    --p-card-gradient: linear-gradient(
+      180deg,
+      hsl(36 40% 94%),
+      hsl(36 38% 90%)
+    );
+    --p-page-gradient: radial-gradient(
+      ellipse 90% 40% at 50% 0%,
+      hsl(36 50% 90%),
+      transparent 70%
+    );
   }
 
   /* ─── Terminal — dark, mono, green accent ────── */
@@ -121,6 +146,18 @@
     --p-font-display: var(--font-mono);
     --p-font-body: var(--font-mono);
     --p-font-mono: var(--font-mono);
+    /* Dark themes use inset top highlight + subtle drop instead of pure
+       drop shadow — dark-on-dark shadows are invisible. */
+    --p-shadow-1: inset 0 1px 0 hsl(0 0% 100% / 0.04),
+      0 4px 16px -4px hsl(0 0% 0% / 0.4);
+    --p-shadow-2: inset 0 1px 0 hsl(0 0% 100% / 0.07),
+      0 12px 32px -8px hsl(0 0% 0% / 0.6);
+    --p-card-gradient: linear-gradient(180deg, hsl(0 0% 12%), hsl(0 0% 9%));
+    --p-page-gradient: radial-gradient(
+      ellipse 90% 40% at 50% 0%,
+      hsl(0 0% 10%),
+      transparent 70%
+    );
   }
 
   /* ─── Glass — dark with translucent panels ────── */
@@ -139,6 +176,20 @@
     --p-font-display: var(--font-sans);
     --p-font-body: var(--font-sans);
     --p-font-mono: var(--font-mono);
+    --p-shadow-1: inset 0 1px 0 hsl(0 0% 100% / 0.04),
+      0 4px 16px -4px hsl(0 0% 0% / 0.3);
+    --p-shadow-2: inset 0 1px 0 hsl(0 0% 100% / 0.07),
+      0 12px 32px -8px hsl(0 0% 0% / 0.5);
+    --p-card-gradient: linear-gradient(
+      180deg,
+      hsl(224 30% 12%),
+      hsl(224 30% 9%)
+    );
+    --p-page-gradient: radial-gradient(
+      ellipse 90% 40% at 50% 0%,
+      hsl(224 30% 8%),
+      transparent 70%
+    );
   }
 }
 
@@ -148,6 +199,70 @@
  * it's enough to make the auth pages look like a product, not a wireframe.
  */
 @layer components {
+  /* Page background — combines the flat bg color with a subtle radial
+     gradient. Gives the page a "lit from above" sense without going heavy.
+     Use this instead of `bg-p-bg` on the layout root.
+
+     The two-layer approach (gradient image on top of solid background-color)
+     means the gradient is visible against the solid bg even when the
+     gradient is partial / transparent. */
+  .p-page-bg {
+    background-color: hsl(var(--p-bg));
+    background-image: var(--p-page-gradient);
+    background-attachment: fixed;
+  }
+
+  /* Premium card surface. Replaces the flat outlined-box pattern that every
+     card-like surface used before. Composes:
+       - A subtle top-to-bottom gradient (gives the surface depth)
+       - A thin border at 55% opacity (less heavy than 100%)
+       - Theme-aware elevation shadow (drop on light, inset highlight on dark)
+
+     Pair with .p-card-hover for hover lift on interactive cards (links). */
+  .p-card {
+    background: var(--p-card-gradient), hsl(var(--p-surface));
+    border: 1px solid hsl(var(--p-border) / 0.55);
+    border-radius: 0.75rem;
+    box-shadow: var(--p-shadow-1);
+    transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 200ms ease;
+  }
+
+  /* Interactive lift on hover — combine with .p-card on links / cards
+     that should signal "clickable". Small motion, bigger shadow, sharper
+     border. The 240ms cubic-bezier(0.16, 1, 0.3, 1) is a refined ease-out
+     that feels "alive" without being slow. */
+  .p-card-hover {
+    cursor: pointer;
+  }
+  .p-card-hover:hover {
+    border-color: hsl(var(--p-border));
+    box-shadow: var(--p-shadow-2);
+    transform: translateY(-2px);
+  }
+
+  /* Section number badge — replaces the lonely "01" text with something
+     that feels architectural. Small mono pill, subtle surface tint, refined
+     spacing. Used in section headers. */
+  .p-section-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.875rem;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    border-radius: 9999px;
+    background: hsl(var(--p-surface));
+    border: 1px solid hsl(var(--p-border) / 0.6);
+    font-family: var(--p-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    color: hsl(var(--p-fg-muted));
+    box-shadow: var(--p-shadow-1);
+  }
+
   .input {
     @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm
       ring-offset-background placeholder:text-muted-foreground
@@ -245,22 +360,3 @@
     content: "";
   }
 }
-
-/* ─── Heatmap cell fills ──────────────────────────────────────────────────
- *
- * Used by GitHub contribution + LeetCode submission heatmaps. Defined as
- * CSS classes (rather than inline `fill="hsl(var(--))"` in SVG) because
- * Tailwind/PostCSS resolves these at build time — far more reliable than
- * inline SVG attributes referencing CSS custom properties.
- *
- * The cell colors derive from the active theme's --p-* tokens, so the
- * heatmap automatically adapts to mono/paper/terminal/glass themes.
- */
-.heatmap-cell {
-  /* Smooth color transitions when the active theme changes. */
-  transition: fill 150ms ease-out;
-}
-.heatmap-0 { fill: hsl(var(--p-surface-2)); }
-.heatmap-1 { fill: hsl(var(--p-fg-subtle)); }
-.heatmap-2 { fill: hsl(var(--p-fg-muted)); }
-.heatmap-3 { fill: hsl(var(--p-fg)); }

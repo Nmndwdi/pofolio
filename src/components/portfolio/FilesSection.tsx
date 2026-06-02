@@ -82,7 +82,7 @@ function FileEntry({
   const [showPreview, setShowPreview] = useState(true);
 
   return (
-    <div className="overflow-hidden rounded-md border border-p-border bg-p-surface">
+    <div className="p-card overflow-hidden">
       {/* Header row — always visible */}
       <div className="flex items-center gap-3 px-4 py-3 text-sm">
         <span className="rounded bg-p-surface-2 px-2 py-0.5 font-p-mono text-xs uppercase text-p-fg-muted">

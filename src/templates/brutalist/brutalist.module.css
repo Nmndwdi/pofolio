@@ -1,0 +1,995 @@
+/*
+ * Brutalist template — scoped CSS.
+ *
+ * Self-contained: every class lives here, hashed by Next.js CSS Modules,
+ * zero global bleed. Tailwind utilities are NOT used in this template by
+ * design — the design vocabulary is too specific to express via utilities.
+ *
+ * 2026 design language (researched, not opinion):
+ *   - Tactile brutalism is the dominant portfolio aesthetic. Sharp
+ *     geometry, 0 border-radius, single-pixel solid borders.
+ *   - NO soft drop shadows. All depth is from offset hard shadows
+ *     (8px 8px 0 #000) — feels like risograph print, not Material Design.
+ *   - Viewport-scaled display type via clamp() — the name should feel
+ *     massive on desktop but stay legible on mobile, no media query soup.
+ *   - One bright accent color used surgically (default: hazard yellow
+ *     #ffd60a). Everything else is ink black on bone white.
+ *   - Asymmetric grids with visible structure. The grid IS the design.
+ *
+ * Variants via [data-palette]:
+ *   - "default" — hazard yellow on bone (the canonical neo-brutalist look)
+ *   - "ink"     — ink black with white text, accent stays yellow
+ *   - "acid"    — acid green accent on bone (closer to web0/swiss design)
+ */
+
+/* ─── Root: tokens + page baseline ──────────────────────────────────── */
+
+.root {
+  /* Palette — overridable via [data-palette]. */
+  --b-bg: #fafaf5;       /* bone — warm off-white, not pure */
+  --b-ink: #000000;      /* the only thing not off-something */
+  --b-accent: #ffd60a;   /* hazard yellow */
+  --b-accent-ink: #000;  /* readable text on accent */
+  --b-muted: #6b6b66;
+  --b-line: #000;
+  --b-shadow-x: 8px;
+  --b-shadow-y: 8px;
+  --b-grid: 8;           /* 8-column desktop grid */
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--b-bg);
+  color: var(--b-ink);
+  font-family: var(--b-font-body), "Space Grotesk", -apple-system, system-ui,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+.root[data-palette="ink"] {
+  --b-bg: #0a0a0a;
+  --b-ink: #fafaf5;
+  --b-accent: #ffd60a;
+  --b-accent-ink: #000;
+  --b-muted: #888;
+  --b-line: #fafaf5;
+}
+
+.root[data-palette="acid"] {
+  --b-bg: #fafaf5;
+  --b-ink: #000;
+  --b-accent: #84e041; /* acid green */
+  --b-accent-ink: #000;
+  --b-muted: #6b6b66;
+  --b-line: #000;
+}
+
+/* ─── Visible grid overlay (toggleable) ────────────────────────────── */
+/*
+ * Drawn behind content with a repeating-linear-gradient. Subtle (4% opacity)
+ * so it reads as a notation, not noise. Toggleable via the [data-grid="off"]
+ * attribute on .root.
+ */
+
+.gridOverlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      var(--b-line) 0,
+      var(--b-line) 1px,
+      transparent 1px,
+      transparent calc(100vw / var(--b-grid))
+    );
+  opacity: 0.06;
+}
+
+.root[data-grid="off"] .gridOverlay {
+  display: none;
+}
+
+/* ─── Custom cursor (desktop only) ─────────────────────────────────── */
+/*
+ * Large block cursor that morphs over interactive elements. CSS-only via
+ * pointer position relayed by a tiny inline-style update from the React
+ * cursor component.
+ *
+ * Hidden on touch devices (no hover) — the morph behavior is meaningless
+ * without a hovering pointer.
+ */
+
+.cursor {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--b-ink);
+  mix-blend-mode: difference;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: width 140ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, width, height;
+}
+
+.cursor[data-state="link"] {
+  width: 56px;
+  height: 56px;
+}
+
+.cursor[data-state="hidden"] {
+  opacity: 0;
+}
+
+@media (hover: none) {
+  .cursor { display: none; }
+}
+
+/* ─── Top bar — palette + grid + sound switches ────────────────────── */
+
+.topBar {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: stretch;
+  border: 2px solid var(--b-line);
+  background: var(--b-bg);
+  box-shadow: var(--b-shadow-x) var(--b-shadow-y) 0 var(--b-line);
+}
+
+.topBarBtn {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-right: 2px solid var(--b-line);
+  font-family: var(--b-font-mono), "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+  cursor: pointer;
+}
+.topBarBtn:last-child { border-right: none; }
+.topBarBtn:hover { background: var(--b-accent); color: var(--b-accent-ink); }
+.topBarBtn[data-active="true"] {
+  background: var(--b-ink);
+  color: var(--b-bg);
+}
+
+/* ─── Layout wrapper ───────────────────────────────────────────────── */
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+@media (min-width: 768px) {
+  .wrap { padding: 80px 48px 128px; }
+}
+
+@media (min-width: 1280px) {
+  .wrap { padding: 96px 80px 160px; }
+}
+
+/* ─── Hero — viewport-scaled name + headline ───────────────────────── */
+/*
+ * The name is the page. clamp(min, preferred, max) lets the type scale
+ * with viewport width without resizing on every breakpoint. Letter-spacing
+ * goes slightly negative — Archivo Black at large sizes has slight gaps
+ * we close intentionally.
+ */
+
+.hero {
+  position: relative;
+  margin-bottom: 96px;
+}
+
+.heroMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--b-line);
+  margin-bottom: 24px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.heroName {
+  font-family: var(--b-font-display), "Archivo Black", sans-serif;
+  font-weight: 900;
+  font-size: clamp(64px, 16vw, 240px);
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  margin: 0;
+  /* Multi-word names wrap; each line is its own unit. */
+  word-break: break-word;
+}
+
+/* Optional accent on the LAST word of the name — adds visual rhythm
+   without needing the user to mark it. JS adds class via post-process. */
+.heroNameAccent {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+  padding: 0 0.05em;
+}
+
+.heroHeadline {
+  margin: 32px 0 0;
+  max-width: 720px;
+  font-family: var(--b-font-body), sans-serif;
+  font-size: clamp(18px, 2.4vw, 32px);
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--b-ink);
+}
+
+.heroFooter {
+  margin-top: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  align-items: center;
+}
+
+/* ─── Section header — block-numbered ────────────────────────────── */
+
+.section {
+  margin-top: 96px;
+  scroll-margin-top: 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 2px solid var(--b-line);
+  margin-bottom: 32px;
+}
+
+.sectionNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 12px 16px;
+  background: var(--b-ink);
+  color: var(--b-bg);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.sectionTitle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: clamp(28px, 4vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.sectionExt {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-left: 2px solid var(--b-line);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+  text-decoration: none;
+  transition: background 120ms;
+}
+.sectionExt:hover { background: var(--b-accent); color: var(--b-accent-ink); }
+
+/* ─── Cards — bordered blocks with offset hard shadows ───────────── */
+/*
+ * The neo-brutalism signature: a solid 2px border + an unblurred shadow at
+ * fixed pixel offset. Hover translates the card *into* the shadow position
+ * — feels physical, like a button being pressed.
+ *
+ * Background is the bg color (not surface — there is no "surface" concept
+ * here, just figure/ground).
+ */
+
+.card {
+  position: relative;
+  background: var(--b-bg);
+  border: 2px solid var(--b-line);
+  box-shadow: var(--b-shadow-x) var(--b-shadow-y) 0 var(--b-line);
+  transition: transform 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+
+.cardHover:hover {
+  transform: translate(var(--b-shadow-x), var(--b-shadow-y));
+  box-shadow: 0 0 0 var(--b-line);
+}
+
+.cardAccent {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+
+/* ─── About / bio block ────────────────────────────────────────── */
+
+.aboutGrid {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .aboutGrid { grid-template-columns: 1fr 1fr; gap: 64px; }
+}
+
+.aboutLead {
+  font-family: var(--b-font-body), sans-serif;
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: 500;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.aboutBody {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--b-muted);
+  white-space: pre-wrap;
+}
+.root[data-palette="ink"] .aboutBody { color: #b8b8b3; }
+
+/* ─── Experience timeline — block list ────────────────────────── */
+
+.expList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.expItem {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 24px 0;
+  border-top: 1px solid var(--b-line);
+}
+.expItem:first-child { border-top: none; padding-top: 0; }
+
+@media (min-width: 768px) {
+  .expItem {
+    grid-template-columns: 200px 1fr 200px;
+    gap: 24px;
+    align-items: baseline;
+  }
+}
+
+.expDates {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+}
+
+.expRole {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: clamp(24px, 2.4vw, 36px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+
+.expCompany {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--b-muted);
+}
+.root[data-palette="ink"] .expCompany { color: #b8b8b3; }
+
+.expSummary {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--b-ink);
+  white-space: pre-wrap;
+}
+
+.expLink {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--b-line);
+  align-self: start;
+}
+.expLink:hover { background: var(--b-accent); }
+
+/* ─── Education compact list ───────────────────────────────────── */
+
+.eduList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.eduItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px solid var(--b-line);
+}
+
+.eduInst {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.eduDegree {
+  font-size: 14px;
+  color: var(--b-muted);
+}
+.root[data-palette="ink"] .eduDegree { color: #b8b8b3; }
+
+.eduDates {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─── Skills — chunky chips ────────────────────────────────────── */
+
+.skillList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skillChip {
+  padding: 6px 14px;
+  background: var(--b-bg);
+  border: 2px solid var(--b-line);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: background 120ms, color 120ms;
+}
+.skillChip:hover {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+
+/* ─── Projects — asymmetric grid ──────────────────────────────── */
+/*
+ * Featured projects get one big card; the rest tile into a 2/3-column grid.
+ * The cards are interactive blocks with the offset-shadow lift on hover.
+ */
+
+.projectFeatured {
+  display: grid;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+.projectCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.projectImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-bottom: 2px solid var(--b-line);
+  background: #eee;
+}
+.root[data-palette="ink"] .projectImage { background: #222; }
+
+.projectBody { padding: 20px 24px 24px; }
+
+.projectMeta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-muted);
+  margin-bottom: 8px;
+}
+.root[data-palette="ink"] .projectMeta { color: #b8b8b3; }
+
+.projectTitle {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: clamp(22px, 2.2vw, 32px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.projectDesc {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--b-ink);
+}
+
+.projectTech {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.projectTechChip {
+  padding: 2px 8px;
+  border: 1px solid var(--b-line);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.projectLinks {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.projectLink {
+  color: var(--b-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--b-line);
+}
+.projectLink:hover { background: var(--b-accent); }
+
+.projectGrid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .projectGrid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+}
+@media (min-width: 1280px) {
+  .projectGrid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ─── Integrations — github / leetcode / codeforces blocks ─────── */
+/*
+ * Big block cards with stat numbers as headlines. Inspired by
+ * sports-broadcast lower-thirds: the number screams, the label whispers.
+ */
+
+.statGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+@media (min-width: 768px) {
+  .statGrid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.statCard {
+  padding: 20px 16px;
+  border: 2px solid var(--b-line);
+  background: var(--b-bg);
+}
+.statCard[data-accent="true"] {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+
+.statValue {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: clamp(36px, 4vw, 56px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.statLabel {
+  margin-top: 6px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ─── Contribution heatmap ─────────────────────────────────────
+ * Brutalist take on the GitHub-style year grid: 2px borders between cells
+ * (not 1px gaps), accent yellow for the highest-activity cells, no rounded
+ * corners. Reads as a printed punch card more than a soft heatmap.
+ */
+.heatmapWrap { font-family: var(--b-font-mono), monospace; }
+.heatmapMeta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.heatmapGrid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 2px;
+  border: 2px solid var(--b-line);
+  padding: 4px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.heatmapCell {
+  width: 14px;
+  height: 14px;
+  background: var(--b-bg);
+  border: 1px solid var(--b-line);
+}
+.heatmapCell[data-level="1"] { background: rgba(255, 214, 10, 0.25); }
+.heatmapCell[data-level="2"] { background: rgba(255, 214, 10, 0.55); }
+.heatmapCell[data-level="3"] { background: var(--b-accent); }
+.heatmapCell[data-level="4"] { background: var(--b-ink); }
+.root[data-palette="ink"] .heatmapCell[data-level="1"] { background: rgba(255, 214, 10, 0.2); }
+.root[data-palette="ink"] .heatmapCell[data-level="2"] { background: rgba(255, 214, 10, 0.45); }
+.root[data-palette="ink"] .heatmapCell[data-level="3"] { background: var(--b-accent); }
+.root[data-palette="ink"] .heatmapCell[data-level="4"] { background: var(--b-bg); }
+
+/* ─── Rating chart (simple line, no Recharts) ────────────────── */
+.chartWrap {
+  border: 2px solid var(--b-line);
+  padding: 16px;
+  background: var(--b-bg);
+}
+.chartSvg {
+  width: 100%;
+  height: 180px;
+  display: block;
+}
+.chartLine { fill: none; stroke: var(--b-ink); stroke-width: 2; }
+.chartArea { fill: var(--b-accent); fill-opacity: 0.3; }
+.chartAxis { stroke: var(--b-ink); stroke-width: 1; }
+.chartLabel {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  fill: var(--b-muted);
+}
+.root[data-palette="ink"] .chartLabel { fill: #888; }
+
+/* ─── Writing (dev.to) list ───────────────────────────────────── */
+.articleList { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.articleItem { border: 2px solid var(--b-line); padding: 16px 20px; }
+.articleItem:hover { background: var(--b-accent); color: var(--b-accent-ink); }
+.articleTitle {
+  font-family: var(--b-font-display), sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.articleMeta {
+  margin-top: 6px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-muted);
+}
+.articleItem:hover .articleMeta { color: var(--b-accent-ink); }
+
+/* ─── ML works (Hugging Face) grid ────────────────────────────── */
+.hfGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .hfGrid { grid-template-columns: repeat(2, 1fr); }
+}
+.hfItem {
+  border: 2px solid var(--b-line);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  color: inherit;
+}
+.hfItem:hover { background: var(--b-accent); color: var(--b-accent-ink); }
+.hfKind {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.hfName {
+  font-family: var(--b-font-display), sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.hfTag {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--b-muted);
+}
+.hfItem:hover .hfTag { color: var(--b-accent-ink); }
+
+/* ─── Custom links grid ───────────────────────────────────────── */
+.linkGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .linkGrid { grid-template-columns: repeat(2, 1fr); }
+}
+.linkItem {
+  border: 2px solid var(--b-line);
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.linkItem:hover { background: var(--b-accent); color: var(--b-accent-ink); }
+.linkLabel {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+.linkHost {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-muted);
+}
+.linkItem:hover .linkHost { color: var(--b-accent-ink); }
+
+/* ─── Files block — inline PDF preview ────────────────────────── */
+.fileList { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.fileBlock { border: 2px solid var(--b-line); background: var(--b-bg); }
+.fileHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--b-line);
+}
+.fileKind {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border: 1px solid var(--b-line);
+}
+.fileName {
+  flex: 1;
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+.fileOpen {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--b-line);
+}
+.fileOpen:hover { background: var(--b-accent); }
+.fileBody {
+  display: block;
+  width: 100%;
+  height: 80vh;
+  border: 0;
+}
+.fileBodyImage {
+  display: block;
+  width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  background: var(--b-bg);
+}
+
+/* ─── Project image gallery (additional images below hero) ───── */
+.projectGalleryAdditional {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (min-width: 768px) {
+  .projectGalleryAdditional { grid-template-columns: repeat(3, 1fr); }
+}
+.projectGalleryImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 2px solid var(--b-line);
+  background: #eee;
+}
+.root[data-palette="ink"] .projectGalleryImg { background: #222; }
+
+/* ─── Socials in hero area ────────────────────────────────────── */
+.socialsStrip {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 2px solid var(--b-line);
+}
+.socialsItem {
+  padding: 8px 16px;
+  border-right: 2px solid var(--b-line);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+  text-decoration: none;
+}
+.socialsItem:last-child { border-right: none; }
+.socialsItem:hover { background: var(--b-accent); color: var(--b-accent-ink); }
+
+/* ─── Footer ─────────────────────────────────────────────────── */
+
+.footer {
+  margin-top: 128px;
+  padding-top: 32px;
+  border-top: 4px solid var(--b-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.footerLeft { color: var(--b-muted); }
+.root[data-palette="ink"] .footerLeft { color: #b8b8b3; }
+
+.footerLink {
+  color: var(--b-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--b-line);
+}
+.footerLink:hover { background: var(--b-accent); }
+
+/* ─── Floating action panel (download PDF / save contact) ──────── */
+/*
+ * Bottom-right corner, brutalist treatment: hard-shadow buttons that press
+ * into their shadows on hover. Hidden during print via [data-print-hide].
+ */
+
+.actions {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 8;
+  display: flex;
+  gap: 12px;
+}
+
+.actionBtn {
+  padding: 12px 20px;
+  background: var(--b-bg);
+  color: var(--b-ink);
+  border: 2px solid var(--b-line);
+  box-shadow: 4px 4px 0 var(--b-line);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 120ms, box-shadow 120ms;
+}
+.actionBtnPrimary {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+.actionBtn:hover {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--b-line);
+}
+
+/* ─── Print rules ─────────────────────────────────────────────── */
+
+@media print {
+  .root, .root[data-palette] {
+    --b-bg: #fff;
+    --b-ink: #111;
+    --b-accent: #fff;
+    --b-accent-ink: #111;
+    --b-muted: #555;
+    --b-line: #111;
+    --b-shadow-x: 0;
+    --b-shadow-y: 0;
+  }
+  .gridOverlay, .cursor, .topBar, .actions { display: none !important; }
+  .card, .skillChip, .eduItem { box-shadow: none !important; }
+}

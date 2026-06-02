@@ -11,6 +11,8 @@ import { getHuggingFaceData } from "@/lib/integrations/huggingface";
 import { resolveTheme, resolveLayout } from "@/lib/theme";
 import { SidebarLayout } from "@/components/layouts/SidebarLayout";
 import { SinglePageLayout } from "@/components/layouts/SinglePageLayout";
+import { TerminalTemplate } from "@/templates/terminal";
+import { BrutalistTemplate } from "@/templates/brutalist";
 import type { LayoutData } from "@/components/layouts/types";
 
 /*
@@ -134,6 +136,13 @@ function LayoutRenderer({
       return <SidebarLayout data={data} />;
     case "single":
       return <SinglePageLayout data={data} />;
+    case "terminal":
+      // Self-contained template — its own CSS module, own scope. The wrapper
+      // <div className={`theme-${theme}`}> above doesn't affect it.
+      return <TerminalTemplate data={data} />;
+    case "brutalist":
+      // Self-contained — neo-brutalism, scoped CSS, own design system.
+      return <BrutalistTemplate data={data} />;
     case "multipage":
     case "grid":
       return <SidebarLayout data={data} />;

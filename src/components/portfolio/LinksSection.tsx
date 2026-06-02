@@ -81,7 +81,7 @@ export async function LinksSection({
                 href={f.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded-md border border-p-border bg-p-surface px-4 py-3 transition-colors hover:bg-p-surface-2"
+                className="p-card p-card-hover block px-4 py-3"
               >
                 <div className="font-p-mono text-xs text-p-fg-subtle">
                   {f.label}
@@ -115,7 +115,7 @@ function LinkCard({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-full flex-col overflow-hidden rounded-md border border-p-border bg-p-surface transition-colors hover:bg-p-surface-2"
+          className="p-card p-card-hover flex h-full flex-col overflow-hidden"
         >
           {preview.image && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -150,7 +150,7 @@ function LinkCard({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="block rounded-md border border-p-border bg-p-surface px-4 py-3 text-sm font-medium text-p-fg transition-colors hover:bg-p-surface-2"
+        className="p-card p-card-hover block px-4 py-3 text-sm font-medium text-p-fg"
       >
         {label}
       </Link>

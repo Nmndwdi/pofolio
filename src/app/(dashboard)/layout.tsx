@@ -45,8 +45,18 @@ export default async function DashboardLayout({
                 "use server";
                 await signOut({ redirectTo: "/" });
               }}
+              // suppressHydrationWarning: Edge / Chrome autofill stamps
+              // `fdprocessedid` on form elements before React hydrates,
+              // causing false-positive attribute mismatch warnings. We
+              // can't stop the browser from adding it; we just silence
+              // the noise it produces.
+              suppressHydrationWarning
             >
-              <button type="submit" className="hover:underline">
+              <button
+                type="submit"
+                className="hover:underline"
+                suppressHydrationWarning
+              >
                 Sign out
               </button>
             </form>

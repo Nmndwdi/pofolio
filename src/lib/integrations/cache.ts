@@ -32,7 +32,6 @@ export type CacheProvider =
   | "codeforces"
   | "leetcode"
   | "devto"
-  | "hashnode"
   | "huggingface"
   | "og";
 

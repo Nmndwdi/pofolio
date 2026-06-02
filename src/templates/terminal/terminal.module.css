@@ -1,0 +1,535 @@
+/*
+ * Terminal template — scoped CSS.
+ *
+ * Self-contained: every selector here is local to this module via Next.js
+ * CSS Modules (class names get a hash suffix at build time, no global bleed).
+ * Zero Tailwind classes, zero shared design tokens — this template owns its
+ * entire visual language.
+ *
+ * Color themes use CSS custom properties scoped to .root. Changing
+ * --t-accent re-themes the whole template at runtime, no re-render needed.
+ *
+ * Aesthetic targets, in order:
+ *   1. It must FEEL like a real terminal — not a stylized facsimile. The
+ *      cursor blink, the prompt rhythm, the way text appears, the CRT-y
+ *      vignette and scanlines should all read as "I'm in a shell".
+ *   2. Stay readable. Phosphor green is iconic but blurs on small text;
+ *      we ease the contrast ratio with a slightly desaturated true-green
+ *      and a subtle text-shadow that mimics CRT bloom without ghosting.
+ *   3. No design-noise: zero rounded corners, zero drop shadows, zero
+ *      gradients on content. The only "depth" is the CRT vignette behind
+ *      everything — a deliberate aesthetic choice (2026 tactile brutalism).
+ */
+
+/* ─── Root wrapper — owns the theme variables ─────────────────────────── */
+
+.root {
+  /* Default theme: phosphor green on true black. */
+  --t-bg: #0a0a0a;
+  --t-fg: #c5f0c5;
+  --t-accent: #00ff66;
+  --t-accent-dim: rgba(0, 255, 102, 0.5);
+  --t-muted: rgba(197, 240, 197, 0.55);
+  --t-subtle: rgba(197, 240, 197, 0.3);
+  --t-error: #ff5555;
+  --t-warn: #ffaa00;
+
+  position: relative;
+  min-height: 100vh;
+  background-color: var(--t-bg);
+  color: var(--t-fg);
+  font-family: var(--t-font-mono), "JetBrains Mono", "Fira Code", Consolas,
+    Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "calt" 1, "liga" 1;
+  /* Subtle CRT bloom — the text appears to glow without being obnoxious. */
+  text-shadow: 0 0 1px currentColor;
+  overflow-x: hidden;
+}
+
+/* Alternative themes. Toggle the `data-theme` attribute on .root to switch. */
+.root[data-theme="amber"] {
+  --t-fg: #f0d8a8;
+  --t-accent: #ffaa00;
+  --t-accent-dim: rgba(255, 170, 0, 0.5);
+  --t-muted: rgba(240, 216, 168, 0.55);
+  --t-subtle: rgba(240, 216, 168, 0.3);
+}
+.root[data-theme="blue"] {
+  --t-fg: #c8e0f5;
+  --t-accent: #00aaff;
+  --t-accent-dim: rgba(0, 170, 255, 0.5);
+  --t-muted: rgba(200, 224, 245, 0.55);
+  --t-subtle: rgba(200, 224, 245, 0.3);
+}
+
+/* ─── CRT overlays ─────────────────────────────────────────────────────
+ * Scanlines and vignette are positioned-absolutely over the whole root.
+ * pointer-events: none means they don't intercept clicks/scroll on content.
+ * Used z-index: 1 keeps them above bg but below interactive content (z:2). */
+
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  /* 2px-tall scanlines drawn with a repeating gradient. Very low opacity
+     (4%) so they're visible but not distracting. */
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.vignette {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  /* Radial darken from center to corners — old-CRT phosphor falloff. */
+  background: radial-gradient(
+    ellipse at center,
+    transparent 30%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+}
+
+.matrixCanvas {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.18;
+}
+
+/* ─── Content scaffold ─────────────────────────────────────────────── */
+
+.content {
+  position: relative;
+  z-index: 2; /* above scanlines + vignette + matrix */
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 24px 80px;
+  min-height: 100vh;
+}
+
+@media (min-width: 720px) {
+  .content {
+    padding: 40px 48px 96px;
+    font-size: 14px;
+  }
+}
+
+/* ─── Top status bar — like tmux/screen ───────────────────────────────── */
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 6px 10px;
+  border: 1px solid var(--t-accent-dim);
+  font-size: 11px;
+  color: var(--t-muted);
+  letter-spacing: 0.04em;
+}
+
+.statusBar > .statusItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  background: var(--t-accent);
+  display: inline-block;
+}
+
+.statusSpacer {
+  flex: 1;
+}
+
+.statusKey {
+  color: var(--t-accent);
+  font-weight: 600;
+}
+
+/* ─── Boot sequence ───────────────────────────────────────────────────── */
+
+.boot {
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.bootLine {
+  opacity: 0;
+  animation: bootFade 80ms forwards;
+}
+
+.bootOk {
+  color: var(--t-accent);
+}
+
+@keyframes bootFade {
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── ASCII banner — the big name ─────────────────────────────────────── */
+
+.banner {
+  display: block;
+  margin: 16px 0 8px;
+  color: var(--t-accent);
+  font-size: 11px;
+  line-height: 1.05;
+  white-space: pre;
+  letter-spacing: 0;
+  /* Stronger bloom on the banner since it's hero-sized. */
+  text-shadow: 0 0 4px var(--t-accent-dim);
+  overflow-x: auto;
+}
+
+@media (min-width: 720px) {
+  .banner {
+    font-size: 13px;
+  }
+}
+
+.tagline {
+  margin: 0 0 24px;
+  color: var(--t-muted);
+  font-size: 12px;
+}
+
+.tagline em {
+  color: var(--t-fg);
+  font-style: normal;
+}
+
+/* ─── Output history ──────────────────────────────────────────────────── */
+
+.history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.historyItem {
+  margin: 6px 0 14px;
+}
+
+/* Prompt-echo style for commands the user typed (shown above their output) */
+.echoLine {
+  color: var(--t-fg);
+}
+
+.echoLine .prompt {
+  color: var(--t-accent);
+}
+
+.echoLine .input {
+  color: var(--t-fg);
+}
+
+.output {
+  color: var(--t-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.output a {
+  color: var(--t-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.output a:hover {
+  background: var(--t-accent);
+  color: var(--t-bg);
+  text-decoration: none;
+}
+
+.errorOutput {
+  color: var(--t-error);
+}
+
+.warnOutput {
+  color: var(--t-warn);
+}
+
+.dim {
+  color: var(--t-muted);
+}
+
+.accent {
+  color: var(--t-accent);
+}
+
+.subtle {
+  color: var(--t-subtle);
+}
+
+/* Section header inside output — used by `whoami`, `projects`, etc. */
+.outputSection {
+  margin: 8px 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--t-accent-dim);
+  color: var(--t-accent);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+/* Key/value rows inside output (e.g. github stats) */
+.kvRow {
+  display: flex;
+  gap: 12px;
+}
+
+.kvKey {
+  min-width: 120px;
+  color: var(--t-muted);
+}
+
+.kvValue {
+  color: var(--t-fg);
+}
+
+/* Project / experience cards — outline only, no fill */
+.entry {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--t-accent-dim);
+}
+
+.entryHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.entryTitle {
+  color: var(--t-accent);
+  font-weight: 600;
+}
+
+.entryMeta {
+  color: var(--t-muted);
+  font-size: 12px;
+}
+
+.entrySub {
+  color: var(--t-fg);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.entryBody {
+  color: var(--t-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  padding: 1px 6px;
+  border: 1px solid var(--t-accent-dim);
+  color: var(--t-fg);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Prompt input row ────────────────────────────────────────────────── */
+
+.promptRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.prompt {
+  color: var(--t-accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inputWrap {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--t-fg);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  text-shadow: inherit;
+  caret-color: transparent; /* hide native caret; we draw our own */
+}
+
+/* Custom block caret that blinks like a terminal */
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background: var(--t-accent);
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+  transform: translateY(2px);
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ─── Mode switcher (top-right corner) ─────────────────────────────── */
+
+.modeSwitch {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--t-accent-dim);
+}
+
+.modeSwitch button {
+  background: transparent;
+  border: none;
+  color: var(--t-muted);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: inherit;
+}
+
+.modeSwitch button:hover {
+  color: var(--t-fg);
+}
+
+.modeSwitch button[data-active="true"] {
+  background: var(--t-accent);
+  color: var(--t-bg);
+  text-shadow: none;
+}
+
+/* ─── Scroll mode (the non-CLI fallback view) ─────────────────────────── */
+
+.scrollMode {
+  position: relative;
+  z-index: 2;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 24px 80px;
+}
+
+@media (min-width: 720px) {
+  .scrollMode {
+    padding: 40px 48px 96px;
+  }
+}
+
+.scrollSection {
+  margin: 32px 0;
+}
+
+.scrollSectionTitle {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--t-accent-dim);
+  color: var(--t-accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.heroName {
+  font-size: 24px;
+  color: var(--t-accent);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.heroHeadline {
+  color: var(--t-muted);
+  margin: 4px 0 16px;
+  font-size: 14px;
+}
+
+.heroBio {
+  color: var(--t-fg);
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* PDF / print rules.
+ *
+ * The user is downloading a *digital* PDF, not paper-printing for ink
+ * economy. So we preserve the terminal aesthetic — true black background,
+ * phosphor text, the whole vibe. The PDF then looks like a screenshot of
+ * the terminal, which matches what the visitor saw on screen.
+ *
+ * Two adjustments for print mechanics:
+ *   - `print-color-adjust: exact` forces Chrome to ACTUALLY paint the
+ *     background colors (default behavior drops them to save toner).
+ *   - Animated/dynamic chrome (matrix rain canvas, mode switcher, prompt
+ *     caret) is hidden — they're either non-deterministic or interactive,
+ *     neither of which makes sense in a static document.
+ */
+@media print {
+  .root,
+  .root[data-theme] {
+    /* Force Chrome to print the dark background instead of stripping it. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Hide interactive / animated chrome that doesn't translate to PDF. */
+  .matrixCanvas,
+  .modeSwitch,
+  .promptRow,
+  .caret {
+    display: none !important;
+  }
+  /* Keep scanlines + vignette but soften — full-strength CRT effects
+     look like printing artifacts on paper. The reduced opacity keeps
+     the aesthetic without overwhelming the printed page. */
+  .scanlines { opacity: 0.4 !important; }
+  .vignette { opacity: 0.5 !important; }
+}

@@ -13,7 +13,6 @@ export interface CacheDoc {
     | "codeforces"
     | "leetcode"
     | "devto"
-    | "hashnode"
     | "huggingface"
     | "og";
   key: string;
@@ -32,7 +31,6 @@ const cacheSchema = new Schema<CacheDoc>(
         "codeforces",
         "leetcode",
         "devto",
-        "hashnode",
         "huggingface",
         "og",
       ],

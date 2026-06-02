@@ -65,17 +65,21 @@ function ProjectCardLarge({ project }: { project: Project }) {
   const galleryRest = (project.images ?? []).slice(1);
 
   return (
-    <article className="space-y-4 rounded-lg border border-p-border bg-p-surface p-5">
-      {/* Hero image */}
+    <article className="p-card space-y-5 p-6 sm:p-7">
+      {/* Hero image — capped at a fixed aspect ratio so tall portrait
+          images crop instead of bloating the card to fill the user's whole
+          viewport. 16:9 is the conventional "screenshot" ratio and reads as
+          intentional regardless of what the user uploaded. */}
       {hero && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={deriveUrl(hero.publicId, {
             width: 1600,
-            crop: "fit",
+            height: 900,
+            crop: "fill",
           })}
           alt={hero.caption ?? project.title}
-          className="block w-full rounded-md border border-p-border object-cover"
+          className="block aspect-[16/9] w-full rounded-lg border border-p-border/40 object-cover"
           loading="lazy"
         />
       )}
@@ -179,7 +183,7 @@ function ProjectCardLarge({ project }: { project: Project }) {
 function ProjectCardCompact({ project }: { project: Project }) {
   const hero = project.images?.[0];
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-md border border-p-border bg-p-surface">
+    <article className="p-card p-card-hover flex h-full flex-col overflow-hidden">
       {hero && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -189,7 +193,7 @@ function ProjectCardCompact({ project }: { project: Project }) {
           loading="lazy"
         />
       )}
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="space-y-0.5">
           <h4 className="text-sm font-semibold text-p-fg">{project.title}</h4>
           {(project.role || project.year) && (

@@ -46,6 +46,9 @@ export const layoutIdSchema = z.enum([
   "single",    // long single column, no nav
   "multipage", // top nav, separate routes per section
   "grid",      // visual-first, projects dominate
+  // ─── Designer templates (each fully self-contained under src/templates/) ──
+  "terminal",  // interactive CLI portfolio — type commands, get output
+  "brutalist", // neo-brutalism — massive type, hard shadows, hazard yellow
 ]);
 export type LayoutId = z.infer<typeof layoutIdSchema>;
 

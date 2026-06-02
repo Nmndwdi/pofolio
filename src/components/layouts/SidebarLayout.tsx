@@ -9,7 +9,6 @@ import { ProjectsSection } from "@/components/portfolio/ProjectsSection";
 import { externalProfileLink } from "@/lib/external-profile-link";
 import { FilesSection } from "@/components/portfolio/FilesSection";
 import { ExportActions } from "@/components/portfolio/ExportActions";
-import { deriveUrl } from "@/lib/cloudinary";
 import {
   type LayoutData,
   type SectionKey,
@@ -30,54 +29,75 @@ import {
  * name, headline, socials) and in-page nav. Main content scrolls
  * independently on the right.
  *
- * Mobile (< md): sidebar collapses into a sticky top bar. Hamburger reveals
- * the same nav as a fullscreen sheet.
+ * Mobile (< md): sidebar collapses into a sticky top bar.
  *
- * Why this is the default:
- *   - Persistent identity (name + photo always visible)
- *   - Real navigation (recruiters jump between sections without scroll fatigue)
- *   - Doesn't read like a CV — sidebar is the strongest "this is a website"
- *     signal we can give for free
+ * Design notes (this iteration):
+ *   - Section headers carry a small mono "01 / 02 / ..." index on their
+ *     left side. Editorial convention; turns a list of sections into a
+ *     navigable document rather than a blob of blocks.
+ *   - Section title typography is larger on desktop (3xl) than before (2xl)
+ *     — the sidebar steals the visual budget that a hero would normally
+ *     occupy, so we recover it here.
+ *   - The heavy border-b under section titles is gone. Hierarchy comes
+ *     from typographic weight + spacing rhythm now, not boxes.
+ *   - External "↗ github.com" link sits at the section-header right with
+ *     a subtle hover translate on the arrow — small motion, big polish.
  */
 
 export function SidebarLayout({ data }: { data: LayoutData }) {
   const sections = sectionsFor(data);
 
+  // Build one flat list with stable numbering. About counts as section 01
+  // when present, so users with a bio see "01 About / 02 Experience / ...".
+  const items: Array<{ key: "about" | SectionKey; label: string }> = [];
+  if (data.bio) items.push({ key: "about", label: "About" });
+  for (const k of sections) items.push({ key: k, label: SECTION_LABELS[k] });
+
   return (
-    <div className="min-h-screen bg-p-bg font-p-body text-p-fg">
+    <div className="p-page-bg min-h-screen font-p-body text-p-fg">
       <SidebarNav data={data} sections={sections} variant="mobile" />
+
+      {/* Floating action panel — always visible at bottom-right of the
+          viewport, regardless of scroll position. Rendered at the layout
+          root rather than inside the footer (which 99% of visitors never
+          reach on a long page). */}
+      <ExportActions slug={data.slug} />
 
       <div className="md:flex">
         <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-p-border lg:w-80">
-          <div className="sticky top-0 flex h-screen flex-col p-8">
+          {/* overflow-y-auto so the sidebar scrolls independently when the
+              user has many sections (the nav list can be >screen-height). */}
+          <div className="sticky top-0 flex h-screen flex-col overflow-y-auto p-8 lg:p-10">
             <SidebarNav data={data} sections={sections} variant="desktop" />
           </div>
         </aside>
 
         <main className="min-w-0 flex-1 px-6 py-12 sm:px-10 sm:py-16 md:px-12 md:py-20 lg:px-20">
-          <div className="mx-auto max-w-3xl space-y-24">
-            {data.bio && (
-              <Section id="about" title="About">
-                <p className="whitespace-pre-wrap text-base leading-relaxed text-p-fg/85">
-                  {data.bio}
-                </p>
-              </Section>
-            )}
+          <div className="mx-auto max-w-3xl space-y-16 sm:space-y-20">
+            {items.map((item, idx) => {
+              const num = String(idx + 1).padStart(2, "0");
 
-            {sections.map((key) => {
-              // External profile URL (e.g. github.com/foo) for sections that
-              // mirror an external platform. Rendered as a small link next to
-              // the section title so visitors can jump to the source.
-              const ext = externalProfileLink(key, data);
+              if (item.key === "about") {
+                return (
+                  <Section key="about" id="about" number={num} title="About">
+                    <p className="whitespace-pre-wrap text-base leading-relaxed text-p-fg/85 sm:text-lg">
+                      {data.bio}
+                    </p>
+                  </Section>
+                );
+              }
+
+              const ext = externalProfileLink(item.key, data);
               return (
                 <Section
-                  key={key}
-                  id={key}
-                  title={SECTION_LABELS[key]}
+                  key={item.key}
+                  id={item.key}
+                  number={num}
+                  title={item.label}
                   externalUrl={ext?.url}
                   externalLabel={ext?.label}
                 >
-                  <SectionContent sectionKey={key} data={data} />
+                  <SectionContent sectionKey={item.key} data={data} />
                 </Section>
               );
             })}
@@ -90,44 +110,61 @@ export function SidebarLayout({ data }: { data: LayoutData }) {
   );
 }
 
+/* ─── Section wrapper ───────────────────────────────────────────────────── */
+
 function Section({
   id,
+  number,
   title,
   externalUrl,
   externalLabel,
   children,
 }: {
   id: string;
+  number: string;
   title: string;
   externalUrl?: string;
   externalLabel?: string;
   children: React.ReactNode;
 }) {
   return (
-    // scroll-mt accounts for the mobile sticky top bar height when the user
-    // jumps via #anchor — otherwise the section title disappears under it.
-    <section id={id} className="scroll-mt-24">
-      <div className="mb-6 flex items-baseline justify-between gap-4 border-b border-p-border pb-3">
-        <h2 className="font-p-display text-2xl font-semibold tracking-tight text-p-fg">
-          {title}
-        </h2>
+    <section id={id} className="scroll-mt-28">
+      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 sm:mb-10">
+        <div className="flex items-center gap-4">
+          {/* Section number badge — replaces the lonely "01" text with a
+              refined pill treatment. Marked aria-hidden because the h2
+              already names the section semantically. */}
+          <span aria-hidden className="p-section-number">
+            {number}
+          </span>
+          <h2 className="font-p-display text-2xl font-semibold tracking-tight text-p-fg sm:text-3xl">
+            {title}
+          </h2>
+        </div>
         {externalUrl && externalLabel && (
           <Link
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            // Small, secondary — doesn't compete with the section title.
-            className="shrink-0 text-xs text-p-fg-muted transition-colors hover:text-p-fg"
+            className="group inline-flex shrink-0 items-baseline gap-1.5 font-p-mono text-xs text-p-fg-subtle transition-colors hover:text-p-fg"
             data-no-print-url
           >
-            {externalLabel} ↗
+            <span>{externalLabel}</span>
+            <span
+              aria-hidden
+              className="inline-block transition-transform group-hover:translate-x-0.5"
+            >
+              ↗
+            </span>
           </Link>
         )}
-      </div>
+      </header>
       <div className="min-w-0">{children}</div>
     </section>
   );
 }
+
+/* ─── Section content dispatch ──────────────────────────────────────────── */
 
 function SectionContent({
   sectionKey,
@@ -217,10 +254,13 @@ function StaleNote({ source }: { source: string }) {
 
 function Footer({ slug }: { slug: string }) {
   return (
-    <footer className="space-y-4 border-t border-p-border pt-8">
-      <ExportActions slug={slug} />
+    <footer className="border-t border-p-border pt-10">
       <div className="flex items-center justify-between text-xs text-p-fg-subtle">
-        <Link href="/" className="hover:text-p-fg" data-no-print-url>
+        <Link
+          href="/"
+          className="transition-colors hover:text-p-fg"
+          data-no-print-url
+        >
           Made with Pofolio
         </Link>
         <span className="font-p-mono">/p/{slug}</span>
