@@ -1,0 +1,1406 @@
+/*
+ * Press v3 — editorial publication template.
+ *
+ * Design philosophy: this is NOT a newspaper front page (newspapers are
+ * dense and ugly on screens). It's an INDIE MAGAZINE — think The
+ * Gentlewoman, Aperture, Bloomberg Businessweek features. The reader
+ * experience: arrive → striking masthead → substantial intro → big
+ * featured piece → flip through sections of varying weight.
+ *
+ * Layout architecture: 11 spreads stacked vertically with 160px gap on
+ * desktop (96px on mobile). Each spread is self-contained — its own
+ * named-area grid, its own typographic rhythm. Reader flows from spread
+ * to spread, not section to section.
+ *
+ * Typography: ONE serif (Instrument Serif), ONE mono (JetBrains Mono for
+ * labels/dates only). No bold weights — italics for emphasis. Hanging
+ * punctuation on the root. Size scale: 12 · 16 · 22 · 32 · 48 · 72 · 128.
+ *
+ * Color: oxblood + cream + single ochre accent. Ochre RESERVED for
+ * section kicker labels only. Oxblood for italic accents, dropcaps, links.
+ */
+
+.root {
+  /* Borrow globally-loaded next/font variables (see root layout). */
+  --press-serif: var(--font-serif), "Instrument Serif", Georgia, serif;
+  --press-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  /* Palette */
+  --press-cream: #f4efe6;
+  --press-cream-darker: #ece5d6;
+  --press-ink: #1f1714;
+  --press-oxblood: #5b1a1a;
+  --press-ochre: #c77b3e;
+  --press-rule: rgba(91, 26, 26, 0.3);
+  --press-rule-strong: rgba(91, 26, 26, 0.6);
+  --press-muted: rgba(31, 23, 20, 0.55);
+
+  /* Optical sizes — clamp() each so they scale viewport-aware. */
+  --press-masthead: clamp(64px, 11vw, 180px);
+  --press-deck: clamp(20px, 2.4vw, 32px);
+  --press-lead-headline: clamp(32px, 4.5vw, 72px);
+  --press-section-title: clamp(24px, 3vw, 48px);
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--press-cream);
+  color: var(--press-ink);
+  font-family: var(--press-serif);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  hanging-punctuation: first last;
+}
+
+/* ─── Scroll reveal ──────────────────────────────────────────
+ * Fade up + 8px translate as elements enter viewport. Driven by
+ * the ScrollReveal component (IntersectionObserver).
+ */
+.reveal {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
+              transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.revealHidden {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* ─── Grain overlay ──────────────────────────────────────────
+ * Fixed SVG noise above content for the printed-paper feel. */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+}
+@media (max-width: 640px) {
+  .grain { opacity: 0.05; }
+}
+
+/* ─── Page shell ──────────────────────────────────────────────
+ * Generous max-width for editorial breathing. Featured project breaks
+ * out of this container to go full-bleed. */
+.page {
+  position: relative;
+  z-index: 2;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+@media (min-width: 768px) {
+  .page { padding: 64px 56px 120px; }
+}
+@media (min-width: 1280px) {
+  .page { padding: 80px 80px 160px; }
+}
+
+/* ─── Spread separator — 160px desktop / 96px mobile gap ───── */
+.spread {
+  margin-top: 96px;
+}
+@media (min-width: 768px) {
+  .spread { margin-top: 160px; }
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 1 — MASTHEAD                                       ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.masthead {
+  display: grid;
+  gap: 32px;
+}
+
+/* Top ribbon — publication strip */
+.topRibbon {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--press-oxblood);
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--press-oxblood);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Contributor portrait — circular, daguerreotype-mount ring. */
+.mastheadAvatar {
+  display: block;
+  width: clamp(72px, 9vw, 120px);
+  height: clamp(72px, 9vw, 120px);
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--press-rule);
+  box-shadow: 0 0 0 4px var(--press-cream), 0 0 0 5px var(--press-oxblood);
+  background: var(--press-cream-darker);
+}
+
+/* Headliner block — 2/3 name + 1/3 byline stack. Stacks on mobile. */
+.headliner {
+  display: grid;
+  gap: 32px;
+  align-items: end;
+}
+@media (min-width: 900px) {
+  .headliner {
+    grid-template-columns: 2fr 1fr;
+    gap: 48px;
+  }
+}
+
+.mastheadName {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: var(--press-masthead);
+  font-weight: 400;
+  line-height: 0.88;
+  letter-spacing: -0.03em;
+  color: var(--press-ink);
+  margin: 0;
+  word-break: break-word;
+  font-feature-settings: "ss01" 1, "kern" 1;
+}
+
+.bylineStack {
+  display: grid;
+  gap: 20px;
+  align-content: end;
+  padding-top: 16px;
+  border-top: 1px solid var(--press-rule);
+}
+@media (min-width: 900px) {
+  .bylineStack { padding-top: 0; border-top: none; }
+}
+
+.bylineRow { display: grid; gap: 2px; }
+.bylineLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--press-oxblood);
+}
+.bylineValue {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--press-ink);
+  line-height: 1.3;
+}
+
+/* Deck — magazine subhead under the headliner.
+ * Hanging quotation mark sits outside the optical edge. */
+.deck {
+  padding-top: 24px;
+  border-top: 1px solid var(--press-rule);
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: var(--press-deck);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--press-ink);
+  max-width: 56ch;
+  margin: 0;
+  text-indent: -0.3em;
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 2 — LEAD STORY (drop cap, single column 64ch)      ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.leadStory {
+  max-width: 64ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Common kicker for editorial spreads (used in lead story, featured work,
+ * index, etc). Mono caps, ochre — the only place ochre appears. */
+.kicker {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--press-ochre);
+  margin-bottom: 16px;
+}
+.kickerNum {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--press-oxblood);
+}
+
+.leadTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--press-lead-headline);
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  color: var(--press-ink);
+  margin: 0 0 24px;
+}
+
+.leadBody {
+  font-family: var(--press-serif);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--press-ink);
+}
+.leadBody p { margin: 0 0 16px; }
+.leadBody p:first-of-type::first-letter {
+  font-family: var(--press-serif);
+  font-weight: 400;
+  font-size: 5em;
+  line-height: 0.85;
+  float: left;
+  margin: 0.04em 0.1em 0 -0.04em;
+  color: var(--press-oxblood);
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 3 — FEATURED WORK (full-bleed photo + overlay)     ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+/* Full-bleed: breaks out of .page container's max-width by using negative
+ * margins back to the viewport edges. Needs the parent to allow overflow.
+ */
+.featured {
+  position: relative;
+}
+
+.featuredKicker {
+  /* Sits inside the .page container width, not full-bleed. */
+  margin-bottom: 24px;
+}
+
+.featuredBleed {
+  /* The full-bleed wrapper — extends to viewport edges regardless of the
+   * .page container's max-width. Calculated via 100vw and negative margin. */
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
+
+.featuredImage {
+  display: block;
+  width: 100%;
+  height: clamp(50vh, 70vh, 800px);
+  object-fit: cover;
+  background: var(--press-cream-darker);
+}
+
+/* Caption card — sits centered overlapping the bottom of the photo. */
+.featuredCaptionWrap {
+  position: relative;
+  z-index: 2;
+  margin-top: -80px;
+  padding: 0 24px;
+}
+@media (min-width: 768px) {
+  .featuredCaptionWrap {
+    margin-top: -100px;
+  }
+}
+
+.featuredCaption {
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--press-cream);
+  border: 1px solid var(--press-rule);
+  padding: 28px 32px;
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 768px) {
+  .featuredCaption { padding: 40px 48px; }
+}
+
+.featuredTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: clamp(32px, 4vw, 56px);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  color: var(--press-ink);
+  margin: 0;
+}
+.featuredLede {
+  font-family: var(--press-serif);
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--press-ink);
+  margin: 0;
+  max-width: 60ch;
+}
+.featuredMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: baseline;
+  padding-top: 14px;
+  border-top: 1px solid var(--press-rule);
+  font-family: var(--press-serif);
+  font-size: 14px;
+  color: var(--press-ink);
+}
+.featuredMetaLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-oxblood);
+  margin-right: 4px;
+}
+.featuredMetaLink {
+  font-family: var(--press-serif);
+  font-style: italic;
+  color: var(--press-oxblood);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 200ms;
+}
+.featuredMetaLink:hover { color: var(--press-ochre); }
+
+/* ─── Featured project gallery (carousel) ─────────────────────
+ * Horizontal-scrolling image gallery below the caption card. Sits inside
+ * the page container (not full-bleed) — magazine photo-essay treatment.
+ *
+ * Implementation:
+ *   - CSS scroll-snap on the track so swipes feel anchored to slides
+ *   - Arrow buttons (desktop) call scrollBy() on the track
+ *   - On touch devices, buttons hide via @media (hover: none); user swipes
+ *
+ * Each slide is sized so two slides are visible on desktop (giving the
+ * "next image peeking" feel that says "there's more"), one on mobile.
+ */
+.featuredGallery {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--press-rule);
+}
+.featuredGalleryHeadRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+.featuredGalleryLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--press-oxblood);
+}
+.featuredGalleryControls {
+  display: flex;
+  gap: 8px;
+}
+@media (hover: none) {
+  /* Hide arrow buttons on touch devices — direct swipe is the natural UX. */
+  .featuredGalleryControls { display: none; }
+}
+.featuredGalleryBtn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--press-rule);
+  background: var(--press-cream);
+  color: var(--press-oxblood);
+  font-family: var(--press-serif);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 160ms, color 160ms;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.featuredGalleryBtn:hover {
+  background: var(--press-oxblood);
+  color: var(--press-cream);
+}
+.featuredGalleryTrack {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Hide scrollbar for cleanliness — the carousel is interaction-rich enough
+     that a visible bar adds visual noise without help. */
+  scrollbar-width: none;
+  padding-bottom: 8px;
+}
+.featuredGalleryTrack::-webkit-scrollbar { display: none; }
+.featuredGallerySlide {
+  flex: 0 0 calc(75% - 16px);
+  scroll-snap-align: start;
+  margin: 0;
+}
+@media (min-width: 768px) {
+  .featuredGallerySlide { flex: 0 0 calc(50% - 16px); }
+}
+@media (min-width: 1100px) {
+  .featuredGallerySlide { flex: 0 0 calc(40% - 16px); }
+}
+.featuredGalleryImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--press-cream-darker);
+  box-shadow: inset 0 0 0 1px var(--press-rule);
+}
+.featuredGalleryCaption {
+  margin-top: 10px;
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--press-muted);
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 4 — THE INDEX (3-col equal-weight scannable)       ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.index {}
+
+.indexHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 32px;
+}
+
+.indexTitle {
+  font-family: var(--press-serif);
+  font-size: var(--press-section-title);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--press-ink);
+  margin: 0;
+}
+
+.indexGrid {
+  display: grid;
+  gap: 40px;
+}
+@media (min-width: 900px) {
+  .indexGrid {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+  }
+  .indexGrid > * + * {
+    padding-left: 32px;
+    margin-left: 32px;
+    border-left: 1px solid var(--press-rule);
+  }
+}
+
+.indexColumn { display: grid; gap: 18px; }
+.indexColumnTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--press-ink);
+  margin: 0 0 4px;
+}
+
+/* Compact entry inside an index column (experience/education). */
+.indexEntry { display: grid; gap: 2px; }
+.indexEntryDate {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-oxblood);
+}
+.indexEntryTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--press-ink);
+}
+.indexEntryOrg {
+  font-family: var(--press-serif);
+  font-size: 14px;
+  color: var(--press-muted);
+}
+
+/* Skills column: groups (preferred) or flat list. */
+.indexSkillGroup { display: grid; gap: 4px; margin-bottom: 14px; }
+.indexSkillGroupName {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-oxblood);
+}
+.indexSkillsFlow {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--press-ink);
+}
+.indexSkillsFlow .sep {
+  color: var(--press-oxblood);
+  font-style: normal;
+  margin: 0 6px;
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 5 — CAREER NOTES (conditional, 2-col)              ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.careerNotes {}
+
+.careerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 40px;
+}
+
+.careerGrid {
+  display: grid;
+  gap: 40px;
+}
+@media (min-width: 900px) {
+  .careerGrid {
+    grid-template-columns: 3fr 2fr;
+    gap: 56px;
+  }
+}
+
+.careerEntry {
+  display: grid;
+  gap: 12px;
+  padding: 24px 0;
+  border-top: 1px solid var(--press-rule);
+}
+.careerEntry:first-child { border-top: none; padding-top: 0; }
+
+.careerEntryDateline {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-oxblood);
+}
+.careerEntryTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--press-ink);
+  margin: 0;
+}
+.careerEntryOrg {
+  font-family: var(--press-serif);
+  font-size: 16px;
+  color: var(--press-muted);
+}
+.careerEntryBody {
+  font-family: var(--press-serif);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--press-ink);
+  max-width: 60ch;
+  margin: 0;
+  white-space: pre-line;
+}
+.careerEntrySkills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--press-oxblood);
+  padding-top: 8px;
+  border-top: 1px dashed var(--press-rule);
+}
+.careerEntrySkills .skillSep {
+  color: var(--press-rule);
+  font-style: normal;
+}
+
+/* Pulled quote in the right column — italic serif, oxblood, oversized */
+.pulledQuote {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: clamp(24px, 2.6vw, 36px);
+  line-height: 1.15;
+  color: var(--press-oxblood);
+  margin: 0;
+  padding-left: 24px;
+  border-left: 2px solid var(--press-oxblood);
+  max-width: 32ch;
+}
+.pulledQuoteAttrib {
+  margin-top: 12px;
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+  font-style: normal;
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 6 — MORE WORK (2-3 col project grid)               ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.moreWork {}
+.moreWorkHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 40px;
+}
+
+.projectGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+}
+@media (min-width: 700px) {
+  .projectGrid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1100px) {
+  .projectGrid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.projectCard {
+  display: grid;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 200ms;
+}
+.projectCard:hover .projectCardImage { transform: scale(1.02); }
+
+/* When a card is expanded it spans the full grid width — the detail
+ * panel needs the room. */
+.projectCardExpanded {
+  grid-column: 1 / -1;
+}
+
+/* The clickable area inside a card — the whole card minus the expanded
+ * detail panel. Strip default button styling, restore card layout. */
+.projectCardButton {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  /* Focus ring for keyboard users — uses oxblood at hairline weight. */
+  outline: none;
+}
+.projectCardButton:focus-visible {
+  outline: 2px solid var(--press-oxblood);
+  outline-offset: 4px;
+}
+
+.projectCardImageWrap {
+  overflow: hidden;
+  background: var(--press-cream-darker);
+  box-shadow: inset 0 0 0 1px var(--press-rule);
+  aspect-ratio: 4 / 3;
+}
+.projectCardImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.projectCardBody { display: grid; gap: 6px; }
+.projectCardNum {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--press-ochre);
+}
+.projectCardTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 400;
+  color: var(--press-ink);
+  margin: 0;
+}
+.projectCardLede {
+  font-family: var(--press-serif);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--press-ink);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Expanded state — no clamp, show full description. */
+.projectCardLedeFull {
+  font-family: var(--press-serif);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--press-ink);
+  margin: 0;
+  white-space: pre-wrap;
+}
+.projectCardMeta {
+  margin-top: 4px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-muted);
+}
+
+/* "+ More" / "− Less" hint inside the card body — italic oxblood. */
+.projectCardToggle {
+  margin-top: 6px;
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--press-oxblood);
+  transition: color 200ms;
+}
+.projectCardButton:hover .projectCardToggle { color: var(--press-ochre); }
+
+/* Expanded detail panel — sits below the card head when expanded. Animated
+ * via max-height + opacity transition. Generous max-height (3000px) covers
+ * even long descriptions; max-height is a CSS pattern for collapsing
+ * content because animating actual height requires JS measurement. */
+.projectCardDetail {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0 solid var(--press-rule);
+  transition: max-height 400ms cubic-bezier(0.2, 0.7, 0.2, 1),
+              opacity 300ms ease-in,
+              margin-top 200ms ease-in-out,
+              padding-top 200ms ease-in-out,
+              border-top-width 200ms ease-in-out;
+}
+.projectCardExpanded .projectCardDetail {
+  max-height: 3000px;
+  opacity: 1;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--press-rule);
+}
+
+.projectCardDetailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: baseline;
+  font-family: var(--press-serif);
+  font-size: 14px;
+  color: var(--press-ink);
+}
+.projectCardDetailLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-oxblood);
+  margin-right: 4px;
+}
+.projectCardDetailLink {
+  font-family: var(--press-serif);
+  font-style: italic;
+  color: var(--press-oxblood);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 200ms;
+}
+.projectCardDetailLink:hover { color: var(--press-ochre); }
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 7 — BY THE NUMBERS (GitHub | LeetCode, paired)     ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.byNumbers {}
+.byNumbersHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 40px;
+}
+.byNumbersGrid {
+  display: grid;
+  gap: 56px;
+}
+@media (min-width: 900px) {
+  .byNumbersGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .byNumbersGrid > * + * {
+    padding-left: 48px;
+    margin-left: 48px;
+    border-left: 1px solid var(--press-rule);
+  }
+}
+
+.platformBlock { display: grid; gap: 24px; }
+.platformHead { display: grid; gap: 4px; }
+.platformName {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--press-ink);
+  line-height: 1;
+}
+.platformHandle {
+  font-family: var(--press-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-oxblood);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.platformHandle:hover { color: var(--press-ochre); }
+
+.statTiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px 16px;
+  padding: 20px 0;
+  border-top: 1px solid var(--press-rule);
+  border-bottom: 1px solid var(--press-rule);
+}
+.statTile { display: grid; gap: 4px; }
+.statValue {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--press-oxblood);
+  font-feature-settings: "onum" 1;
+}
+.statLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+}
+
+/* Heatmap (calendar). Slightly compact version of the same calendar logic
+ * used in terminal/brutalist. */
+.heatmap { display: grid; gap: 12px; }
+.heatmapLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+}
+.heatmapYears {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.heatmapYearBtn {
+  background: transparent;
+  border: 1px solid var(--press-rule);
+  padding: 3px 9px;
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--press-ink);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.heatmapYearBtn:hover { background: var(--press-cream-darker); }
+.heatmapYearBtn[data-active="true"] {
+  background: var(--press-oxblood);
+  color: var(--press-cream);
+  border-color: var(--press-oxblood);
+}
+.heatmapCalendar {
+  display: grid;
+  row-gap: 2px;
+  column-gap: 0;
+  align-items: center;
+  overflow-x: auto;
+  padding: 4px;
+}
+.heatmapMonth {
+  font-family: var(--press-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--press-oxblood);
+  text-align: left;
+  overflow: visible;
+  white-space: nowrap;
+  padding-bottom: 4px;
+  min-width: 0;
+}
+.heatmapDay {
+  font-family: var(--press-mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--press-muted);
+  padding-right: 6px;
+  text-align: right;
+}
+.heatmapCell {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 10px;
+  background: transparent;
+  border: 1px solid var(--press-rule);
+}
+.heatmapCell[data-level="-1"] { border-color: transparent; }
+.heatmapCell[data-level="0"] { background: transparent; }
+.heatmapCell[data-level="1"] { background: rgba(91, 26, 26, 0.18); border-color: rgba(91, 26, 26, 0.25); }
+.heatmapCell[data-level="2"] { background: rgba(91, 26, 26, 0.42); border-color: rgba(91, 26, 26, 0.5); }
+.heatmapCell[data-level="3"] { background: rgba(91, 26, 26, 0.7); border-color: var(--press-oxblood); }
+.heatmapCell[data-level="4"] { background: var(--press-oxblood); border-color: var(--press-oxblood); }
+
+/* LeetCode difficulty ratio bars */
+.ratioStrip {
+  display: grid;
+  gap: 8px;
+  font-family: var(--press-serif);
+  font-size: 15px;
+}
+.ratioRow {
+  display: grid;
+  grid-template-columns: 60px 1fr 80px;
+  gap: 12px;
+  align-items: center;
+}
+.ratioLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-oxblood);
+}
+.ratioBar {
+  background: var(--press-cream-darker);
+  height: 8px;
+  border: 1px solid var(--press-rule);
+  overflow: hidden;
+}
+.ratioFill {
+  background: var(--press-oxblood);
+  height: 100%;
+}
+.ratioValue {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--press-ink);
+  text-align: right;
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 8 — COMPETITIVE (Codeforces full width)            ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.competitive {}
+.competitiveHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 32px;
+}
+.competitiveTitle {
+  font-family: var(--press-serif);
+  font-size: var(--press-section-title);
+  font-weight: 400;
+  margin: 0;
+}
+
+.competitiveStats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+@media (min-width: 700px) {
+  .competitiveStats { grid-template-columns: repeat(4, 1fr); }
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: 240px;
+  margin: 16px 0 32px;
+}
+.chartArea { fill: rgba(91, 26, 26, 0.12); }
+.chartLine { fill: none; stroke: var(--press-oxblood); stroke-width: 1.5; }
+.chartAxis { stroke: var(--press-rule); stroke-width: 1; }
+.chartLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  fill: var(--press-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recentContests { display: grid; gap: 0; }
+.contestRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--press-rule);
+  text-decoration: none;
+  color: inherit;
+  transition: padding-left 200ms;
+}
+.contestRow:first-child { border-top: 1px solid var(--press-rule); }
+.contestRow:hover { padding-left: 8px; }
+@media (min-width: 700px) {
+  .contestRow {
+    grid-template-columns: 130px 1fr auto;
+    gap: 24px;
+    align-items: baseline;
+  }
+}
+.contestDate {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-oxblood);
+}
+.contestName {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--press-ink);
+}
+.contestMeta {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-muted);
+}
+.contestDeltaPos { color: #2c7a2c; }
+.contestDeltaNeg { color: var(--press-oxblood); }
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 9 — THE WIRE (writing + ML + links consolidated)   ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.wire {}
+.wireHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 32px;
+}
+
+.wireList { display: grid; gap: 0; }
+.wireRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--press-rule);
+  text-decoration: none;
+  color: inherit;
+  transition: padding-left 200ms;
+}
+.wireRow:first-child { border-top: 1px solid var(--press-rule); }
+.wireRow:hover { padding-left: 8px; }
+@media (min-width: 700px) {
+  .wireRow {
+    grid-template-columns: 110px 1fr auto;
+    gap: 24px;
+    align-items: baseline;
+  }
+}
+.wireSource {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-ochre);
+}
+.wireTitle {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--press-ink);
+  margin: 0;
+}
+.wireMeta {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-muted);
+}
+.wireDescription {
+  font-family: var(--press-serif);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--press-muted);
+  margin: 0;
+  grid-column: 1 / -1;
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 10 — DOCUMENTS                                     ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.documents {}
+.documentsHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--press-rule);
+  margin-bottom: 32px;
+}
+.documentList { display: grid; gap: 24px; }
+.fileBlock {
+  border: 1px solid var(--press-rule);
+  background: var(--press-cream);
+}
+.fileHead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--press-rule);
+  flex-wrap: wrap;
+}
+.fileKind {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-oxblood);
+  padding: 3px 8px;
+  border: 1px solid var(--press-rule);
+}
+.fileName {
+  flex: 1;
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--press-ink);
+}
+.fileOpen {
+  font-family: var(--press-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--press-oxblood);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fileDescription {
+  padding: 12px 18px;
+  font-family: var(--press-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--press-muted);
+  border-bottom: 1px solid var(--press-rule);
+  margin: 0;
+}
+.fileBody {
+  display: block;
+  width: 100%;
+  height: 80vh;
+  border: 0;
+}
+.fileBodyImage {
+  display: block;
+  width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  background: var(--press-cream-darker);
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
+   ║  SPREAD 11 — COLOPHON                                       ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+
+.colophon {
+  margin-top: 160px;
+  padding-top: 32px;
+  border-top: 2px solid var(--press-oxblood);
+  display: grid;
+  gap: 24px;
+  font-family: var(--press-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+}
+@media (min-width: 700px) {
+  .colophon { grid-template-columns: 1fr auto; align-items: end; }
+}
+
+.colophonLead {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 28px;
+  text-transform: none;
+  letter-spacing: -0.005em;
+  color: var(--press-ink);
+  max-width: 24ch;
+  line-height: 1.15;
+}
+.colophonLead em { color: var(--press-oxblood); }
+.colophonCta {
+  font-family: var(--press-serif);
+  font-size: 18px;
+  font-style: italic;
+  text-transform: none;
+  color: var(--press-oxblood);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.colophonCta:hover { color: var(--press-ochre); }
+
+/* Contributor line — typeset socials before the colophon. */
+.contributorLine {
+  margin-top: 64px;
+  padding: 24px 0;
+  border-top: 1px solid var(--press-rule);
+  border-bottom: 1px solid var(--press-rule);
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--press-ink);
+  line-height: 1.55;
+}
+.contributorLead {
+  font-style: italic;
+  color: var(--press-muted);
+  margin-right: 6px;
+}
+.contributorLink {
+  font-style: italic;
+  color: var(--press-oxblood);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 200ms;
+}
+.contributorLink:hover { color: var(--press-ochre); }
+.contributorSep {
+  color: var(--press-rule-strong);
+  font-style: normal;
+  margin: 0 6px;
+}
+
+/* ─── Print stylesheet ───────────────────────────────────────
+ * Press already looks like a printed page — minimal overrides.
+ * Drop grain (heavy SVG), all shadows, all animations. */
+@media print {
+  .root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .grain { display: none !important; }
+  :global(*) { box-shadow: none !important; text-shadow: none !important; }
+  .spread, .project, .careerEntry,
+  .heatmap, .chart, .wireRow, .contestRow, .fileBlock {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  :global(*), :global(*::before), :global(*::after) {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Re-show reveal-hidden elements in case print fires before reveal. */
+  .reveal, .revealHidden {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

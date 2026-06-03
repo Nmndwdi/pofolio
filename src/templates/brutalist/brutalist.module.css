@@ -32,6 +32,8 @@
   --b-accent-ink: #000;  /* readable text on accent */
   --b-muted: #6b6b66;
   --b-line: #000;
+  --b-positive: #2c7a2c; /* dark green — readable on bone */
+  --b-negative: #b22222; /* firebrick — readable on bone */
   --b-shadow-x: 8px;
   --b-shadow-y: 8px;
   --b-grid: 8;           /* 8-column desktop grid */
@@ -55,6 +57,8 @@
   --b-accent-ink: #000;
   --b-muted: #888;
   --b-line: #fafaf5;
+  --b-positive: #5cdd5c;
+  --b-negative: #ff6b6b;
 }
 
 .root[data-palette="acid"] {
@@ -212,6 +216,20 @@
   letter-spacing: 0.1em;
 }
 
+/* Avatar — brutalist square photograph with offset shadow. Square corners
+ * fit the design language; the offset shadow continues the "brutalist
+ * stack of cards" rhythm. */
+.heroAvatar {
+  display: block;
+  width: clamp(96px, 16vw, 160px);
+  height: clamp(96px, 16vw, 160px);
+  object-fit: cover;
+  margin-bottom: 32px;
+  border: 3px solid var(--b-line);
+  box-shadow: var(--b-shadow-x) var(--b-shadow-y) 0 var(--b-line);
+  background: var(--b-bg);
+}
+
 .heroName {
   font-family: var(--b-font-display), "Archivo Black", sans-serif;
   font-weight: 900;
@@ -255,6 +273,31 @@
 .section {
   margin-top: 96px;
   scroll-margin-top: 32px;
+}
+
+/* ─── Slam-in reveal animation ────────────────────────────────────
+ * Brutalist scroll reveal — sections enter horizontally from left or
+ * right with an overshoot-and-settle curve. Direction alternates per
+ * section (set by the SlamIn component via `from` prop) for visual
+ * rhythm. Hard cubic-bezier (0.18, 1.6, 0.36, 1) gives the
+ * slammed-into-place feel: starts fast, overshoots ~10%, settles.
+ */
+.slam {
+  transition: transform 700ms cubic-bezier(0.18, 1.6, 0.36, 1),
+              opacity 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform: translateX(0);
+  opacity: 1;
+}
+.slamHiddenLeft {
+  /* Starting position: off-screen to the left, fully transparent.
+     The overshoot in the bezier means it'll briefly go a few px PAST
+     the resting position then settle back. */
+  transform: translateX(-80px);
+  opacity: 0;
+}
+.slamHiddenRight {
+  transform: translateX(80px);
+  opacity: 0;
 }
 
 .sectionHeader {
@@ -423,6 +466,29 @@
   white-space: pre-wrap;
 }
 
+/* Per-experience skill chips — what was used in THIS role. Smaller and
+ * dimmer than the global skill chips so they read as inline metadata. */
+.expSkills {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.expSkillChip {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 2px solid var(--b-line);
+  background: transparent;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--b-ink);
+}
+
 .expLink {
   font-family: var(--b-font-mono), monospace;
   font-size: 11px;
@@ -476,6 +542,53 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* Education description — coursework, GPA, thesis. Renders below the
+ * degree as inline body text. Matches the brutalist body weight. */
+.eduMain {
+  display: grid;
+  gap: 6px;
+}
+.eduDescription {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--b-ink);
+  white-space: pre-wrap;
+  max-width: 56ch;
+}
+
+/* ─── Skill groups wrapper ──────────────────────────────────────
+ * Replaces the flat skill list. Each group gets a name header (when
+ * multiple groups exist), optional description, and its own chip row.
+ * Single-group case (auto-migration from flat skills) skips the header. */
+.skillsWrap {
+  display: grid;
+  gap: 24px;
+}
+.skillGroup {
+  display: grid;
+  gap: 8px;
+}
+.skillGroupName {
+  margin: 0;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--b-ink);
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--b-line);
+}
+.skillGroupDescription {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--b-ink);
+  opacity: 0.75;
+  max-width: 56ch;
 }
 
 /* ─── Skills — chunky chips ────────────────────────────────────── */
@@ -635,6 +748,168 @@
   background: var(--b-accent);
   color: var(--b-accent-ink);
 }
+/* Linkable stat cards (e.g. the @handle card) — add the brutalist shadow
+   press effect on hover so it reads as clickable. Reset the default <a>
+   text-decoration since we're treating the card as a block link. */
+.statCard[data-link="true"] {
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  box-shadow: 4px 4px 0 var(--b-line);
+  transition: transform 140ms, box-shadow 140ms;
+}
+.statCard[data-link="true"]:hover {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--b-line);
+}
+
+/* ─── LeetCode difficulty ratio bars ──────────────────────────────
+ * Three side-by-side bars (Easy/Medium/Hard). Each bar has a label/count
+ * row on top and a bordered track with a colored fill. Brutalist: solid
+ * borders, no rounded corners, two-color palette (background + fill).
+ */
+.lcRatioRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .lcRatioRow { grid-template-columns: repeat(3, 1fr); }
+}
+.ratioBar {
+  border: 2px solid var(--b-line);
+  background: var(--b-bg);
+  padding: 12px 14px;
+}
+.ratioHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.ratioLabel {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.ratioCount {
+  font-family: var(--b-font-display), sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.ratioTotal {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--b-muted);
+}
+.ratioTrack {
+  height: 8px;
+  border: 1px solid var(--b-line);
+  background: var(--b-bg);
+}
+.ratioFill {
+  height: 100%;
+  background: var(--b-ink);
+  transition: width 240ms ease-out;
+}
+.ratioFill[data-difficulty="easy"] {
+  background: var(--b-accent);
+}
+.ratioFill[data-difficulty="medium"] {
+  background: var(--b-ink);
+}
+.ratioFill[data-difficulty="hard"] {
+  /* Striped fill for hard — visual signal of "challenging" without
+     resorting to a stoplight-red color (would clash with the palette). */
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--b-ink) 0,
+    var(--b-ink) 4px,
+    var(--b-accent) 4px,
+    var(--b-accent) 8px
+  );
+}
+
+/* ─── Language summary chips for GitHub ─────────────────────────── */
+.langGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.langChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 2px solid var(--b-line);
+  background: var(--b-bg);
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.langDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--b-line);
+}
+.langCount {
+  color: var(--b-muted);
+  font-weight: 600;
+}
+
+/* ─── Codeforces recent contests list ───────────────────────────── */
+.recentContests {
+  display: grid;
+  gap: 8px;
+}
+.recentContestRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 2px solid var(--b-line);
+  background: var(--b-bg);
+  text-decoration: none;
+  color: inherit;
+  transition: background 120ms;
+}
+.recentContestRow:hover {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+.recentContestName {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.recentContestMeta {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.recentContestPositive {
+  color: var(--b-positive, #008000);
+  font-weight: 700;
+}
+.recentContestNegative {
+  color: var(--b-negative, #d40000);
+  font-weight: 700;
+}
 
 .statValue {
   font-family: var(--b-font-display), sans-serif;
@@ -668,21 +943,99 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-.heatmapGrid {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(7, 1fr);
-  gap: 2px;
+
+/* Year selector tabs — brutalist bordered buttons, no rounded corners.
+   Active year fills with hazard yellow; inactive sit transparent with ink
+   borders. Hovering an inactive year previews the accent fill at half
+   intensity. */
+.heatmapYears {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-bottom: 12px;
   border: 2px solid var(--b-line);
-  padding: 4px;
+  width: fit-content;
+}
+.heatmapYearBtn {
+  background: transparent;
+  border: none;
+  border-right: 2px solid var(--b-line);
+  padding: 4px 12px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--b-ink);
+  cursor: pointer;
+  transition: background 100ms;
+}
+.heatmapYearBtn:last-child { border-right: none; }
+.heatmapYearBtn:hover { background: rgba(255, 214, 10, 0.4); }
+.heatmapYearBtn[data-active="true"] {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+.root[data-palette="ink"] .heatmapYearBtn { color: var(--b-ink); }
+.root[data-palette="ink"] .heatmapYearBtn[data-active="true"] {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+
+/* Calendar grid. CSS Grid with day-label column + N week columns.
+   columnGap:0 + rowGap:2px gives the brutalist "punched card" feel —
+   cells flush horizontally, breathing room between day rows. */
+.heatmapCalendar {
+  display: grid;
+  row-gap: 2px;
+  column-gap: 0;
+  align-items: center;
+  border: 2px solid var(--b-line);
+  padding: 6px 6px 6px 4px;
   overflow-x: auto;
   max-width: 100%;
 }
+
+.heatmapMonth {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--b-ink);
+  text-align: left;
+  overflow: visible;
+  white-space: nowrap;
+  padding-bottom: 4px;
+  /* Allow labels to overflow into adjacent grid columns without pushing
+     the column widths. */
+  min-width: 0;
+}
+
+.heatmapDay {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--b-muted);
+  padding-right: 6px;
+  text-align: right;
+}
+
 .heatmapCell {
-  width: 14px;
-  height: 14px;
-  background: var(--b-bg);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: transparent;
   border: 1px solid var(--b-line);
+  max-height: 14px;
+}
+.heatmapCell[data-level="-1"] {
+  /* Out-of-window cell — invisible but still claims grid space so future
+     days in the current year don't shrink the chart width. */
+  border-color: transparent;
+}
+.heatmapCell[data-level="0"] {
+  background: transparent;
 }
 .heatmapCell[data-level="1"] { background: rgba(255, 214, 10, 0.25); }
 .heatmapCell[data-level="2"] { background: rgba(255, 214, 10, 0.55); }
@@ -791,15 +1144,19 @@
 .linkItem {
   border: 2px solid var(--b-line);
   padding: 14px 18px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label host"
+    "desc desc";
+  gap: 4px 12px;
   align-items: baseline;
-  gap: 12px;
   text-decoration: none;
   color: inherit;
 }
 .linkItem:hover { background: var(--b-accent); color: var(--b-accent-ink); }
 .linkLabel {
+  grid-area: label;
   font-family: var(--b-font-display), sans-serif;
   font-weight: 900;
   font-size: 16px;
@@ -807,6 +1164,7 @@
   letter-spacing: -0.01em;
 }
 .linkHost {
+  grid-area: host;
   font-family: var(--b-font-mono), monospace;
   font-size: 11px;
   font-weight: 600;
@@ -815,6 +1173,18 @@
   color: var(--b-muted);
 }
 .linkItem:hover .linkHost { color: var(--b-accent-ink); }
+/* Link description — only renders when set. Sits below label/host in the
+ * card. Slightly muted body text so it doesn't compete with the label. */
+.linkDescription {
+  grid-area: desc;
+  margin-top: 4px;
+  font-family: var(--b-font-body), sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--b-ink);
+  opacity: 0.8;
+}
+.linkItem:hover .linkDescription { color: var(--b-accent-ink); opacity: 1; }
 
 /* ─── Files block — inline PDF preview ────────────────────────── */
 .fileList { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
@@ -825,6 +1195,17 @@
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 2px solid var(--b-line);
+}
+/* File description — coursework, GPA, thesis, cert details. Sits between
+ * the head and the inline preview when set. */
+.fileDescription {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--b-ink);
+  border-bottom: 2px solid var(--b-line);
+  white-space: pre-wrap;
 }
 .fileKind {
   font-family: var(--b-font-mono), monospace;
@@ -980,16 +1361,58 @@
 /* ─── Print rules ─────────────────────────────────────────────── */
 
 @media print {
+  /* Force Chrome to actually paint the background colors instead of
+     stripping them. Without this, brutalist prints as plain white. The user
+     also needs to check "Background graphics" in the print dialog. */
   .root, .root[data-palette] {
-    --b-bg: #fff;
-    --b-ink: #111;
-    --b-accent: #fff;
-    --b-accent-ink: #111;
-    --b-muted: #555;
-    --b-line: #111;
-    --b-shadow-x: 0;
-    --b-shadow-y: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
+  /* Hide interactive / animated chrome that doesn't translate to a static
+     PDF: floating action buttons, grid overlay, custom cursor, top bar. */
   .gridOverlay, .cursor, .topBar, .actions { display: none !important; }
-  .card, .skillChip, .eduItem { box-shadow: none !important; }
+
+  /* CRITICAL: drop ALL box-shadows during print. The brutalist offset hard
+     shadows (8px 8px 0 ink) on every card forced Chrome to recompute paint
+     regions for each card on every page boundary. With ~30 cards × 8 pages,
+     this was effectively never-completing. Shadows aren't useful in print
+     anyway (they read as printing artifacts). */
+  :global(*) {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Pagination control — keep sections together so Chrome doesn't try to
+     split a card or a heatmap across pages. break-inside:avoid is the new
+     name; page-break-inside:avoid is the legacy alias for older engines. */
+  .card, .statCard, .skillChip, .eduItem,
+  .ratioBar, .heatmapWrap, .chartWrap,
+  .articleItem, .hfItem, .linkItem,
+  .fileBlock {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Section headers want to stick with their content — orphan-header
+     prevention. */
+  .sectionHeader {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* CRITICAL: stop all animations + transitions during print. Running
+     keyframes / transitions cause Chrome to defer `window.print()` until
+     they stabilize, which on a heavy page (many heatmap cells, multiple
+     charts) can be effectively never. This freezes every animation at its
+     current frame and lets print dispatch immediately. */
+  :global(*), :global(*::before), :global(*::after) {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Force slam-in sections to their final state in case print fires before
+     the IntersectionObserver has revealed them. Otherwise content would
+     be invisible in the PDF. */
+  .slam, .slamHiddenLeft, .slamHiddenRight {
+    transform: none !important;
+    opacity: 1 !important;
+  }
 }

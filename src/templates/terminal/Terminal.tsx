@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { LayoutData } from "@/components/layouts/types";
 import { MatrixRain } from "./MatrixRain";
+import { ScrollSection } from "./ScrollSection";
 import { asciiBanner, bannerWouldOverflow } from "./ascii";
 import {
   formatCodeforces,
@@ -279,16 +280,14 @@ export function Terminal({ data }: { data: LayoutData }) {
 
         case "pdf":
         case "download": {
-          // Trigger the browser print dialog. Print stylesheet in the CSS
-          // module strips scanlines/vignette/matrix and forces black-on-white.
-          // We schedule it with a tiny defer so the "calling..." echo line
-          // renders first — otherwise the dialog opens BEFORE the echo paints.
-          setTimeout(() => window.print(), 50);
+          // PDF export currently unavailable — client-side window.print()
+          // proved unreliable on heavy pages; a server-side route is
+          // queued. Surface this honestly rather than silently failing.
           return {
             output: (
               <span className={styles.dim}>
-                opening print dialog… (use{" "}
-                <span className={styles.accent}>Save as PDF</span> destination)
+                pdf export coming soon — use{" "}
+                <span className={styles.accent}>Ctrl+P</span> in the meantime
               </span>
             ),
           };
@@ -648,16 +647,8 @@ export function Terminal({ data }: { data: LayoutData }) {
         >
           Scroll
         </button>
-        {/* PDF download button — for visitors who don't want to discover the
-            `pdf` command. The print stylesheet in terminal.module.css strips
-            CRT effects and forces black-on-white for ink economy. */}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          aria-label="Download portfolio as PDF"
-        >
-          PDF
-        </button>
+        {/* PDF download button removed — client-side window.print() proved
+            unreliable. Server-side PDF route queued as a separate task. */}
       </div>
 
       {mode === "cli" ? (
@@ -862,81 +853,60 @@ function ScrollView({ data }: { data: LayoutData }) {
       {data.bio && <p className={styles.heroBio}>{data.bio}</p>}
 
       {data.experience.length > 0 && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>experience</h2>
-          <div className={styles.output}>{formatExperience(data).node}</div>
-        </section>
+        <ScrollSection title="experience">
+          {formatExperience(data).node}
+        </ScrollSection>
       )}
       {data.education.length > 0 && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>education</h2>
-          <div className={styles.output}>{formatEducation(data).node}</div>
-        </section>
+        <ScrollSection title="education">
+          {formatEducation(data).node}
+        </ScrollSection>
       )}
-      {data.skills.length > 0 && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>skills</h2>
-          <div className={styles.output}>{formatSkills(data).node}</div>
-        </section>
+      {/* Skills section is gated on skillGroups since the page loader
+          auto-migrates flat skills into a group. So if a user has either,
+          this renders. */}
+      {data.skillGroups.length > 0 && (
+        <ScrollSection title="skills">
+          {formatSkills(data).node}
+        </ScrollSection>
       )}
       {data.projects.length > 0 && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>projects</h2>
-          <div className={styles.output}>{formatProjects(data).node}</div>
-        </section>
+        <ScrollSection title="projects">
+          {formatProjects(data).node}
+        </ScrollSection>
       )}
       {data.github && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>github</h2>
-          <div className={styles.output}>
-            {formatGithub(data, ghYear, setGhYear).node}
-          </div>
-        </section>
+        <ScrollSection title="github">
+          {formatGithub(data, ghYear, setGhYear).node}
+        </ScrollSection>
       )}
       {data.leetcode && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>leetcode</h2>
-          <div className={styles.output}>
-            {formatLeetcode(data, lcYear, setLcYear).node}
-          </div>
-        </section>
+        <ScrollSection title="leetcode">
+          {formatLeetcode(data, lcYear, setLcYear).node}
+        </ScrollSection>
       )}
       {data.codeforces && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>codeforces</h2>
-          <div className={styles.output}>
-            {formatCodeforces(data, cfYear, setCfYear).node}
-          </div>
-        </section>
+        <ScrollSection title="codeforces">
+          {formatCodeforces(data, cfYear, setCfYear).node}
+        </ScrollSection>
       )}
       {data.devto && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>writing</h2>
-          <div className={styles.output}>{formatDevto(data).node}</div>
-        </section>
+        <ScrollSection title="writing">
+          {formatDevto(data).node}
+        </ScrollSection>
       )}
       {data.huggingface && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>ml works</h2>
-          <div className={styles.output}>{formatHuggingface(data).node}</div>
-        </section>
+        <ScrollSection title="ml works">
+          {formatHuggingface(data).node}
+        </ScrollSection>
       )}
       {data.customLinks.length > 0 && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>links</h2>
-          <div className={styles.output}>{formatLinks(data).node}</div>
-        </section>
+        <ScrollSection title="links">{formatLinks(data).node}</ScrollSection>
       )}
       {(data.resumeCloudinaryId || data.files.length > 0) && (
-        <section className={styles.scrollSection}>
-          <h2 className={styles.scrollSectionTitle}>files</h2>
-          <div className={styles.output}>{formatFiles(data).node}</div>
-        </section>
+        <ScrollSection title="files">{formatFiles(data).node}</ScrollSection>
       )}
-      <section className={styles.scrollSection}>
-        <h2 className={styles.scrollSectionTitle}>socials</h2>
-        <div className={styles.output}>{formatSocials(data).node}</div>
-      </section>
+      <ScrollSection title="socials">{formatSocials(data).node}</ScrollSection>
 
       {/* "Make your own" CTA — the same closer that the CLI footer would
           show. Links to / so any visitor who reaches the bottom of the

@@ -49,6 +49,7 @@ export const layoutIdSchema = z.enum([
   // ─── Designer templates (each fully self-contained under src/templates/) ──
   "terminal",  // interactive CLI portfolio — type commands, get output
   "brutalist", // neo-brutalism — massive type, hard shadows, hazard yellow
+  "press",     // editorial newspaper — serif masthead, oxblood-on-cream, kinetic type
 ]);
 export type LayoutId = z.infer<typeof layoutIdSchema>;
 

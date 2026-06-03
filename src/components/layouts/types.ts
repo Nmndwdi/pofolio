@@ -54,7 +54,20 @@ export interface LayoutData {
   devto: CachedResult<DevToData> | null;
   huggingface: CachedResult<HuggingFaceData> | null;
 
-  customLinks: Array<{ id: string; label: string; url: string }>;
+  customLinks: Array<{
+    id: string;
+    label: string;
+    url: string;
+    /** Optional description (≤1000 chars). */
+    description?: string;
+  }>;
+
+  /**
+   * User-defined social/handle links beyond the built-in 5 (linkedin /
+   * twitter / website / email / github in `socials`). For Mastodon, Bluesky,
+   * ORCID, Polywork, Threads, etc.
+   */
+  customSocials: Array<{ id: string; label: string; url: string }>;
 
   experience: Array<{
     id: string;
@@ -62,14 +75,35 @@ export interface LayoutData {
     role: string;
     dates: string;
     summary: string;
+    /** Per-experience skills — what was used in THIS role specifically. */
+    skills?: string[];
   }>;
   education: Array<{
     id: string;
     institution: string;
     degree: string;
     dates: string;
+    /** Optional description (coursework, thesis, GPA, ≤1000 chars). */
+    description?: string;
   }>;
+  /**
+   * Flat list of skills. Backwards-compat with the original schema. Coexists
+   * with `skillGroups` below. Templates may render either or both.
+   */
   skills: string[];
+  /**
+   * Skills organized into named groups. Each group has a name, optional
+   * description, and its own skills array. If the user only has flat skills,
+   * a synthetic single group ("Skills") is provided by the page loader so
+   * templates don't have to special-case the empty-groups path — they can
+   * always render `skillGroups` and get something useful.
+   */
+  skillGroups: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    skills: string[];
+  }>;
 
   resumeCloudinaryId?: string;
   files: Array<{
@@ -79,6 +113,8 @@ export interface LayoutData {
     resourceType: "image" | "video" | "raw";
     format: string;
     bytes: number;
+    /** Optional description (≤1000 chars). */
+    description?: string;
   }>;
 
   // Structured projects (replaces the old `projectImages` flat gallery).

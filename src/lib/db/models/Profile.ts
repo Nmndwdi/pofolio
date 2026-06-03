@@ -43,7 +43,17 @@ export interface ProfileDoc {
   devto?: string;
   huggingface?: string;
 
-  customLinks?: Array<{ id: string; label: string; url: string }>;
+  customLinks?: Array<{
+    id: string;
+    label: string;
+    url: string;
+    // New: optional description (max 1000 chars). Templates render below the
+    // link label as a small explainer.
+    description?: string;
+  }>;
+
+  // New: user-defined social links beyond the fixed 5 in `socials`.
+  customSocials?: Array<{ id: string; label: string; url: string }>;
 
   resumeCloudinaryId?: string;
   files?: Array<{
@@ -53,6 +63,9 @@ export interface ProfileDoc {
     resourceType: "image" | "video" | "raw";
     format: string;
     bytes: number;
+    // New: optional description (max 1000). Useful for certificates ("Issued
+    // by ECCouncil"), supporting docs etc.
+    description?: string;
   }>;
 
   // Projects — structured records, not just images. Each project has a title,
@@ -84,14 +97,31 @@ export interface ProfileDoc {
     role: string;
     dates: string;
     summary: string;
+    // New: per-experience skills.
+    skills?: string[];
   }>;
   education?: Array<{
     id: string;
     institution: string;
     degree: string;
     dates: string;
+    // New: optional description (max 1000 chars). Coursework, GPA, thesis,
+    // honors, etc.
+    description?: string;
   }>;
   skills?: string[];
+
+  /*
+   * skillGroups — named buckets of skills with optional descriptions.
+   * Coexists with the flat `skills` array during migration. Templates can
+   * render either or both.
+   */
+  skillGroups?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    skills: string[];
+  }>;
 
   sections: Section[];
   isPublic: boolean;
@@ -163,6 +193,21 @@ const profileSchema = new Schema<ProfileDoc>(
           id: { type: String, required: true },
           label: { type: String, required: true },
           url: { type: String, required: true },
+          // New: optional 1000-char description.
+          description: { type: String, default: "", maxlength: 1000 },
+        },
+      ],
+      default: [],
+    },
+
+    // New: user-defined social links beyond the fixed 5 in `socials`.
+    customSocials: {
+      type: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          label: { type: String, required: true, maxlength: 40 },
+          url: { type: String, required: true, maxlength: 500 },
         },
       ],
       default: [],
@@ -184,6 +229,8 @@ const profileSchema = new Schema<ProfileDoc>(
           },
           format: { type: String, required: true },
           bytes: { type: Number, required: true },
+          // New: optional 1000-char description per file.
+          description: { type: String, default: "", maxlength: 1000 },
         },
       ],
       default: [],
@@ -233,8 +280,9 @@ const profileSchema = new Schema<ProfileDoc>(
           company: { type: String, default: "" },
           role: { type: String, default: "" },
           dates: { type: String, default: "" },
-          // Summary cap bumped to match the new validator's 1500.
           summary: { type: String, default: "", maxlength: 1500 },
+          // New: per-experience skills used in THIS role.
+          skills: { type: [String], default: [] },
         },
       ],
       default: [],
@@ -247,11 +295,27 @@ const profileSchema = new Schema<ProfileDoc>(
           institution: { type: String, default: "" },
           degree: { type: String, default: "" },
           dates: { type: String, default: "" },
+          // New: optional description (coursework, thesis, GPA, etc.).
+          description: { type: String, default: "", maxlength: 1000 },
         },
       ],
       default: [],
     },
     skills: { type: [String], default: [] },
+
+    // New: skill groups. Coexists with flat `skills` above. Either or both.
+    skillGroups: {
+      type: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          name: { type: String, default: "" },
+          description: { type: String, default: "", maxlength: 1000 },
+          skills: { type: [String], default: [] },
+        },
+      ],
+      default: [],
+    },
 
     sections: { type: [sectionShape], default: [] },
 

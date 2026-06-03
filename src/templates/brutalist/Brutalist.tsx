@@ -7,6 +7,7 @@ import { externalProfileLink } from "@/lib/external-profile-link";
 import { sectionsFor, SECTION_LABELS } from "@/components/layouts/types";
 import { CustomCursor } from "./CustomCursor";
 import { Hero } from "./Hero";
+import { SlamIn } from "./SlamIn";
 import {
   AboutSection,
   CodeforcesFull,
@@ -49,6 +50,27 @@ export function Brutalist({ data }: { data: LayoutData }) {
   const [gridOn, setGridOn] = useState(true);
   const [soundOn, setSoundOn] = useState(false);
 
+  // isPrinting flips to true when the browser fires `beforeprint`, back to
+  // false on `afterprint`. We use it to fully UNMOUNT (not just hide) the
+  // CustomCursor, gridOverlay, and FloatingActions during print. `display:
+  // none` in CSS isn't enough for these — the cursor uses
+  // `mix-blend-mode: difference` which creates a compositing layer that
+  // Chrome was holding onto across the print layout pass, and the
+  // gridOverlay's repeating-linear-gradient was being re-rasterized at
+  // every page break. Pulling them from the DOM entirely lets Chrome
+  // settle layout in one pass.
+  const [isPrinting, setIsPrinting] = useState(false);
+  useEffect(() => {
+    const onBefore = () => setIsPrinting(true);
+    const onAfter = () => setIsPrinting(false);
+    window.addEventListener("beforeprint", onBefore);
+    window.addEventListener("afterprint", onAfter);
+    return () => {
+      window.removeEventListener("beforeprint", onBefore);
+      window.removeEventListener("afterprint", onAfter);
+    };
+  }, []);
+
   // Keep the sound module's enabled flag synced with state. Done in effect
   // so we don't trigger a Web Audio init on every render.
   useEffect(() => {
@@ -78,19 +100,27 @@ export function Brutalist({ data }: { data: LayoutData }) {
 
   return (
     <div className={styles.root} data-palette={palette} data-grid={gridOn ? "on" : "off"}>
-      <div className={styles.gridOverlay} aria-hidden />
-      <CustomCursor />
+      {/* gridOverlay + CustomCursor unmounted during print — see isPrinting
+          comment above. They render normally outside print. */}
+      {!isPrinting && (
+        <>
+          <div className={styles.gridOverlay} aria-hidden />
+          <CustomCursor />
+        </>
+      )}
 
-      <TopBar
-        palette={palette}
-        setPalette={setPalette}
-        gridOn={gridOn}
-        setGridOn={setGridOn}
-        soundOn={soundOn}
-        setSoundOn={setSoundOn}
-      />
+      {!isPrinting && (
+        <TopBar
+          palette={palette}
+          setPalette={setPalette}
+          gridOn={gridOn}
+          setGridOn={setGridOn}
+          soundOn={soundOn}
+          setSoundOn={setSoundOn}
+        />
+      )}
 
-      <FloatingActions slug={data.slug} />
+      {!isPrinting && <FloatingActions slug={data.slug} />}
 
       <div className={styles.wrap}>
         <Hero data={data} />
@@ -102,11 +132,17 @@ export function Brutalist({ data }: { data: LayoutData }) {
             item.key !== "about"
               ? externalProfileLink(item.key as never, data)
               : null;
+          // Alternate left/right entry per section for visual rhythm —
+          // brutalist "stack of posters slapped onto the page". Odd indices
+          // enter from the right; even from the left.
+          const direction: "left" | "right" = idx % 2 === 0 ? "left" : "right";
           return (
-            <section
+            <SlamIn
               key={item.key}
               id={item.key}
+              as="section"
               className={styles.section}
+              from={direction}
             >
               <SectionHeader
                 number={num}
@@ -115,7 +151,7 @@ export function Brutalist({ data }: { data: LayoutData }) {
                 externalLabel={ext?.label}
               />
               <SectionBody sectionKey={item.key} data={data} />
-            </section>
+            </SlamIn>
           );
         })}
 
@@ -229,17 +265,14 @@ function TopBar({
 /* ─── Floating actions ─────────────────────────────────────────────── */
 
 function FloatingActions({ slug }: { slug: string }) {
+  // Download-PDF removed — client-side window.print() proved unreliable on
+  // heavy pages (compositing layers, animation deferral, browser quirks).
+  // A server-side PDF route (Playwright + chromium) is queued as a separate
+  // task; until then we leave only the Save Contact vCard link, which works.
   return (
     <div className={styles.actions} data-print-hide>
-      <button
-        type="button"
-        className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-        onClick={() => window.print()}
-      >
-        Download PDF
-      </button>
       <a
-        className={styles.actionBtn}
+        className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
         href={`/p/${slug}/vcard`}
         data-no-print-url
       >

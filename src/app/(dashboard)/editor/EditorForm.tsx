@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
+import { useForm, useFieldArray, Controller, FormProvider, type Control, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -74,6 +74,8 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
   const githubValue = watch("github") ?? "";
   const codeforcesValue = watch("codeforces") ?? "";
   const leetcodeValue = watch("leetcode") ?? "";
+  const devtoValue = watch("devto") ?? "";
+  const huggingfaceValue = watch("huggingface") ?? "";
 
   const githubStatus = useHandleCheck<{
     name: string | null;
@@ -95,6 +97,25 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
     totalSolved: number;
   }>(leetcodeValue, {
     endpoint: "/api/integrations/leetcode/check",
+    paramName: "username",
+  });
+  // Dev.to and Hugging Face get the same live-check treatment so users see
+  // green-tick / not-found feedback as they type. Same endpoint contract
+  // (returns `{ status, preview }`).
+  const devtoStatus = useHandleCheck<{
+    username: string;
+    articleCount: number;
+  }>(devtoValue, {
+    endpoint: "/api/integrations/devto/check",
+    paramName: "username",
+  });
+  const huggingfaceStatus = useHandleCheck<{
+    username: string;
+    totalModels: number;
+    totalDatasets: number;
+    totalSpaces: number;
+  }>(huggingfaceValue, {
+    endpoint: "/api/integrations/huggingface/check",
     paramName: "username",
   });
 
@@ -277,6 +298,9 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
           role: e.role ?? "",
           dates: e.dates ?? "",
           summary: e.summary ?? "",
+          // New per-experience skills field — empty by default; user can
+          // fill in per-role specifics in the editor.
+          skills: [],
         });
       }
       for (const e of p.education) {
@@ -285,6 +309,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
           institution: e.institution ?? "",
           degree: e.degree ?? "",
           dates: e.dates ?? "",
+          description: "",
         });
       }
 
@@ -464,6 +489,17 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
             placeholder="you@example.com"
           />
         </Field>
+
+        {/* Additional platforms (Mastodon, Bluesky, ORCID, Polywork, …).
+            Rendered inline below the fixed four — same group, same visual
+            rhythm. Each entry is a label + URL pair; we drop empty rows on
+            save. */}
+        <Field
+          label="Other platforms"
+          hint="Mastodon, Bluesky, ORCID, Polywork — anything else."
+        >
+          <CustomSocialsEditor control={control} register={register} />
+        </Field>
       </Group>
 
       {/* ─── Coding handles ─────────────────────────────── */}
@@ -506,7 +542,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
         <Field
           label="Dev.to username"
           error={errors.devto?.message}
-          hint="Your recent Dev.to articles will be shown."
+          hint={renderDevToHint(devtoStatus, devtoValue)}
         >
           <input
             {...register("devto")}
@@ -517,7 +553,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
         <Field
           label="Hugging Face username"
           error={errors.huggingface?.message}
-          hint="Your top models, datasets, and spaces by likes."
+          hint={renderHuggingFaceHint(huggingfaceStatus, huggingfaceValue)}
         >
           <input
             {...register("huggingface")}
@@ -532,32 +568,43 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
         title="Other links"
         hint="Anything else you want visitors to click — projects, blog posts, etc."
       >
-        <ul className="space-y-3">
-          {fields.map((field, i) => (
-            <li
-              key={field.id}
-              className="grid grid-cols-[1fr_2fr_auto] gap-2 sm:gap-3"
-            >
-              <input
-                {...register(`customLinks.${i}.label`)}
-                className="input"
-                placeholder="Label"
-              />
-              <input
-                {...register(`customLinks.${i}.url`)}
-                className="input"
-                placeholder="https://…"
-              />
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="text-sm text-muted-foreground hover:text-destructive"
-                aria-label="Remove link"
+        <ul className="space-y-4">
+          {fields.map((field, i) => {
+            const descValue = watch(`customLinks.${i}.description`) ?? "";
+            return (
+              <li
+                key={field.id}
+                className="space-y-2 rounded-md border bg-card p-3"
               >
-                Remove
-              </button>
-            </li>
-          ))}
+                <div className="grid grid-cols-[1fr_2fr_auto] gap-2 sm:gap-3">
+                  <input
+                    {...register(`customLinks.${i}.label`)}
+                    className="input"
+                    placeholder="Label"
+                  />
+                  <input
+                    {...register(`customLinks.${i}.url`)}
+                    className="input"
+                    placeholder="https://…"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => remove(i)}
+                    className="text-sm text-muted-foreground hover:text-destructive"
+                    aria-label="Remove link"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <TextareaWithCounter
+                  value={descValue}
+                  rows={2}
+                  placeholder="Optional description"
+                  fieldProps={register(`customLinks.${i}.description`)}
+                />
+              </li>
+            );
+          })}
         </ul>
         <button
           type="button"
@@ -566,6 +613,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
               id: crypto.randomUUID(),
               label: "",
               url: "",
+              description: "",
             })
           }
           className="btn-secondary"
@@ -618,6 +666,22 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                   className="input min-h-[56px] resize-y"
                   placeholder="One or two lines about the role"
                 />
+                {/* Per-experience skills: what was used in THIS role. */}
+                <div>
+                  <div className="mb-1.5 text-xs text-muted-foreground">
+                    Skills used in this role
+                  </div>
+                  <Controller
+                    name={`experience.${i}.skills`}
+                    control={control}
+                    render={({ field: f }) => (
+                      <SkillsEditor
+                        value={f.value ?? []}
+                        onChange={f.onChange}
+                      />
+                    )}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => experienceFA.remove(i)}
@@ -637,6 +701,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                 role: "",
                 dates: "",
                 summary: "",
+                skills: [],
               })
             }
             className="btn-secondary"
@@ -654,37 +719,46 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
             </p>
           )}
           <ul className="space-y-4">
-            {educationFA.fields.map((field, i) => (
-              <li
-                key={field.id}
-                className="space-y-2 rounded-md border bg-card p-3"
-              >
-                <input
-                  {...register(`education.${i}.institution`)}
-                  className="input"
-                  placeholder="Institution"
-                />
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <input
-                    {...register(`education.${i}.degree`)}
-                    className="input"
-                    placeholder="Degree (e.g. B.Tech, Computer Science)"
-                  />
-                  <input
-                    {...register(`education.${i}.dates`)}
-                    className="input"
-                    placeholder="Dates (e.g. 2019 – 2023)"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => educationFA.remove(i)}
-                  className="text-xs text-muted-foreground hover:text-destructive"
+            {educationFA.fields.map((field, i) => {
+              const descValue = watch(`education.${i}.description`) ?? "";
+              return (
+                <li
+                  key={field.id}
+                  className="space-y-2 rounded-md border bg-card p-3"
                 >
-                  Remove
-                </button>
-              </li>
-            ))}
+                  <input
+                    {...register(`education.${i}.institution`)}
+                    className="input"
+                    placeholder="Institution"
+                  />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      {...register(`education.${i}.degree`)}
+                      className="input"
+                      placeholder="Degree (e.g. B.Tech, Computer Science)"
+                    />
+                    <input
+                      {...register(`education.${i}.dates`)}
+                      className="input"
+                      placeholder="Dates (e.g. 2019 – 2023)"
+                    />
+                  </div>
+                  <TextareaWithCounter
+                    value={descValue}
+                    rows={2}
+                    placeholder="Optional — coursework, GPA, thesis, honors"
+                    fieldProps={register(`education.${i}.description`)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => educationFA.remove(i)}
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    Remove
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           <button
             type="button"
@@ -694,6 +768,7 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                 institution: "",
                 degree: "",
                 dates: "",
+                description: "",
               })
             }
             className="btn-secondary"
@@ -702,8 +777,11 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
           </button>
         </div>
 
-        {/* Skills */}
-        <Field label="Skills">
+        {/* Skills (flat) */}
+        <Field
+          label="Skills"
+          hint="Quick chip list. For more structure, use skill groups below."
+        >
           <Controller
             name="skills"
             control={control}
@@ -713,6 +791,18 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                 onChange={field.onChange}
               />
             )}
+          />
+        </Field>
+
+        {/* Skill groups */}
+        <Field
+          label="Skill groups"
+          hint="Organize skills by area — e.g. Backend, DevOps, Frontend."
+        >
+          <SkillGroupsEditor
+            control={control}
+            register={register}
+            watch={watch}
           />
         </Field>
       </Group>
@@ -774,36 +864,83 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                   resourceType: asset.resourceType,
                   format: asset.format,
                   bytes: asset.bytes,
+                  // Empty description by default — user adds it manually.
+                  description: "",
                 })}
                 onChange={field.onChange}
                 renderItem={(item, onRemove) => (
-                  <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm">
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">
-                      {item.format || "FILE"}
-                    </span>
-                    <input
-                      // Inline-edit the label. We update via the field's value
-                      // by mapping over items.
-                      value={item.label}
-                      onChange={(e) => {
-                        field.onChange(
-                          field.value.map((f) =>
-                            f.id === item.id
-                              ? { ...f, label: e.target.value }
-                              : f,
-                          ),
-                        );
-                      }}
-                      className="input h-8 flex-1 text-sm"
-                      maxLength={80}
-                    />
-                    <button
-                      type="button"
-                      onClick={onRemove}
-                      className="text-xs text-muted-foreground hover:text-destructive"
-                    >
-                      Remove
-                    </button>
+                  <div className="space-y-2 rounded-md border bg-card px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">
+                        {item.format || "FILE"}
+                      </span>
+                      <input
+                        // Inline-edit the label. We update via the field's value
+                        // by mapping over items.
+                        value={item.label}
+                        onChange={(e) => {
+                          field.onChange(
+                            field.value.map((f) =>
+                              f.id === item.id
+                                ? { ...f, label: e.target.value }
+                                : f,
+                            ),
+                          );
+                        }}
+                        className="input h-8 flex-1 text-sm"
+                        maxLength={80}
+                      />
+                      <button
+                        type="button"
+                        onClick={onRemove}
+                        className="text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {/* Optional 1000-char description — e.g. "Issued by
+                        ECCouncil — credential ID ABC-123" for a cert, or
+                        a one-paragraph case study summary. We can't use
+                        TextareaWithCounter directly because the textarea
+                        isn't an RHF-registered field here (it's controlled
+                        via the parent Controller's onChange map). So we
+                        inline the same pattern by hand. */}
+                    {(() => {
+                      const desc = item.description ?? "";
+                      const len = desc.length;
+                      const over = len > 1000;
+                      return (
+                        <div className="space-y-1">
+                          <textarea
+                            value={desc}
+                            onChange={(e) => {
+                              field.onChange(
+                                field.value.map((f) =>
+                                  f.id === item.id
+                                    ? { ...f, description: e.target.value }
+                                    : f,
+                                ),
+                              );
+                            }}
+                            rows={2}
+                            maxLength={1050}
+                            placeholder="Optional description"
+                            className="input min-h-[44px] resize-y text-sm"
+                          />
+                          <div
+                            className={`text-right text-xs tabular-nums ${
+                              over
+                                ? "text-destructive"
+                                : len > 900
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {len} / 1000
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               />
@@ -854,6 +991,11 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                     desc: "Massive type, hazard yellow, hard shadows — loud",
                   },
                   {
+                    value: "press",
+                    label: "Press",
+                    desc: "Editorial newspaper — oxblood serifs, kinetic typography",
+                  },
+                  {
                     value: "multipage",
                     label: "Multi-page",
                     desc: "Top nav, separate pages (coming soon)",
@@ -870,42 +1012,11 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
             )}
           />
         </Field>
-        <Field label="Theme">
-          <Controller
-            name="theme"
-            control={control}
-            render={({ field }) => (
-              <PickerGrid
-                value={field.value}
-                onChange={field.onChange}
-                options={[
-                  {
-                    value: "mono",
-                    label: "Mono",
-                    desc: "Clean white, sharp typography",
-                  },
-                  {
-                    value: "paper",
-                    label: "Paper",
-                    desc: "Warm cream, serif, editorial",
-                  },
-                  {
-                    value: "terminal",
-                    label: "Terminal",
-                    desc: "Dark, mono, green accent (coming soon)",
-                    disabled: true,
-                  },
-                  {
-                    value: "glass",
-                    label: "Glass",
-                    desc: "Dark, translucent panels (coming soon)",
-                    disabled: true,
-                  },
-                ]}
-              />
-            )}
-          />
-        </Field>
+        {/* Theme picker removed for now — we may bring it back later when we
+            have themes that actually differ visually across all templates.
+            The `theme` field still exists in the schema and DB; the API
+            normalize step preserves whatever's stored, and the page loader
+            falls back to "mono" via resolveTheme() for any unknown value. */}
       </Group>
 
       {/* Sticky bottom save bar — convenient on long forms */}
@@ -1033,6 +1144,209 @@ function ResumeParseButton({
  * Skills editor — a tag input. Type a skill, press Enter or comma to add it.
  * Each skill renders as a removable chip. Deduplicates case-insensitively.
  */
+/*
+ * TextareaWithCounter — drop-in textarea that shows a live "X / max" counter.
+ * Used everywhere we accept the 1000-char "description" fields (customLinks,
+ * education, files, skill groups). The watched value comes from RHF's
+ * register pattern — caller passes the registered field props and the current
+ * value, we render the textarea + a counter below it.
+ *
+ * We use watch() inside the parent component to get the live value, and pass
+ * it in via the `value` prop here. Simpler than threading useFormContext
+ * through every call site.
+ */
+function TextareaWithCounter({
+  value,
+  max = 1000,
+  rows = 3,
+  placeholder,
+  fieldProps,
+}: {
+  value: string;
+  max?: number;
+  rows?: number;
+  placeholder?: string;
+  fieldProps: ReturnType<UseFormReturn<ProfileFormInput>["register"]>;
+}) {
+  const len = value?.length ?? 0;
+  const over = len > max;
+  return (
+    <div className="space-y-1">
+      <textarea
+        {...fieldProps}
+        rows={rows}
+        maxLength={max + 50 /* allow a little buffer so the counter can show overage */}
+        className="input resize-y"
+        placeholder={placeholder}
+      />
+      <div
+        className={`text-right text-xs tabular-nums ${
+          over
+            ? "text-destructive"
+            : len > max * 0.9
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-muted-foreground"
+        }`}
+      >
+        {len} / {max}
+      </div>
+    </div>
+  );
+}
+
+/*
+ * SkillGroupsEditor — manages the `skillGroups` field array. Each group is
+ * a card with a name input, optional description (with live counter), and a
+ * nested SkillsEditor for the group's skill chips.
+ *
+ * Groups are entirely optional — users can also just use the flat `skills`
+ * field above. If they use neither, the public page shows nothing for the
+ * skills section. If they use both, templates may choose which to render
+ * (or merge them) per their own design language.
+ */
+function SkillGroupsEditor({
+  control,
+  register,
+  watch,
+}: {
+  control: Control<ProfileFormInput>;
+  register: UseFormReturn<ProfileFormInput>["register"];
+  watch: UseFormReturn<ProfileFormInput>["watch"];
+}) {
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "skillGroups",
+  });
+
+  return (
+    <div className="space-y-3">
+      {fields.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No skill groups yet. Use these to organize skills by area (Backend,
+          DevOps, etc.).
+        </p>
+      )}
+      <ul className="space-y-4">
+        {fields.map((field, i) => {
+          const descValue = watch(`skillGroups.${i}.description`) ?? "";
+          return (
+            <li
+              key={field.id}
+              className="space-y-2 rounded-md border bg-card p-3"
+            >
+              <input
+                {...register(`skillGroups.${i}.name`)}
+                className="input"
+                placeholder="Group name (e.g. Backend)"
+              />
+              <TextareaWithCounter
+                value={descValue}
+                rows={2}
+                placeholder="Optional — what this group is about"
+                fieldProps={register(`skillGroups.${i}.description`)}
+              />
+              <Controller
+                name={`skillGroups.${i}.skills`}
+                control={control}
+                render={({ field: f }) => (
+                  <SkillsEditor
+                    value={f.value ?? []}
+                    onChange={f.onChange}
+                  />
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                Remove group
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <button
+        type="button"
+        onClick={() =>
+          append({
+            id: crypto.randomUUID(),
+            name: "",
+            description: "",
+            skills: [],
+          })
+        }
+        className="btn-secondary"
+      >
+        + Add skill group
+      </button>
+    </div>
+  );
+}
+
+/*
+ * CustomSocialsEditor — list of label + URL pairs for social platforms
+ * beyond the built-in 5 (LinkedIn, Twitter, website, email, GitHub).
+ * Mastodon, Bluesky, ORCID, Polywork, Threads, etc.
+ */
+function CustomSocialsEditor({
+  control,
+  register,
+}: {
+  control: Control<ProfileFormInput>;
+  register: UseFormReturn<ProfileFormInput>["register"];
+}) {
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "customSocials",
+  });
+
+  return (
+    <div className="space-y-3">
+      {fields.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          Add Mastodon, Bluesky, ORCID, or any other platform.
+        </p>
+      )}
+      <ul className="space-y-3">
+        {fields.map((field, i) => (
+          <li
+            key={field.id}
+            className="grid grid-cols-[1fr_2fr_auto] gap-2 sm:gap-3"
+          >
+            <input
+              {...register(`customSocials.${i}.label`)}
+              className="input"
+              placeholder="Platform (e.g. Mastodon)"
+            />
+            <input
+              {...register(`customSocials.${i}.url`)}
+              className="input"
+              placeholder="https://…"
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              className="text-sm text-muted-foreground hover:text-destructive"
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={() =>
+          append({ id: crypto.randomUUID(), label: "", url: "" })
+        }
+        className="btn-secondary"
+      >
+        + Add social link
+      </button>
+    </div>
+  );
+}
+
 function SkillsEditor({
   value,
   onChange,
@@ -1251,6 +1565,93 @@ function renderCodeforcesHint(
       return <span className="text-destructive">No Codeforces user with that handle</span>;
     case "invalid":
       return <span className="text-destructive">Doesn&apos;t look like a valid Codeforces handle</span>;
+    case "error":
+      return (
+        <span className="text-muted-foreground">
+          Couldn&apos;t check right now — try saving anyway.
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+function renderDevToHint(
+  status: HandleStatus<{ username: string; articleCount: number }>,
+  value: string,
+): React.ReactNode {
+  if (!value.trim()) return null;
+  switch (status.state) {
+    case "checking":
+      return <span className="text-muted-foreground">Checking…</span>;
+    case "ok": {
+      const { articleCount } = status.preview;
+      return (
+        <span className="text-emerald-600 dark:text-emerald-400">
+          ✓ Found{articleCount > 0 ? ` · ${articleCount} articles` : ""}
+        </span>
+      );
+    }
+    case "not_found":
+      return (
+        <span className="text-destructive">
+          No Dev.to user with that username
+        </span>
+      );
+    case "invalid":
+      return (
+        <span className="text-destructive">
+          Doesn&apos;t look like a valid Dev.to username
+        </span>
+      );
+    case "error":
+      return (
+        <span className="text-muted-foreground">
+          Couldn&apos;t check right now — try saving anyway.
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+function renderHuggingFaceHint(
+  status: HandleStatus<{
+    username: string;
+    totalModels: number;
+    totalDatasets: number;
+    totalSpaces: number;
+  }>,
+  value: string,
+): React.ReactNode {
+  if (!value.trim()) return null;
+  switch (status.state) {
+    case "checking":
+      return <span className="text-muted-foreground">Checking…</span>;
+    case "ok": {
+      const { totalModels, totalDatasets, totalSpaces } = status.preview;
+      const parts: string[] = [];
+      if (totalModels > 0) parts.push(`${totalModels} models`);
+      if (totalDatasets > 0) parts.push(`${totalDatasets} datasets`);
+      if (totalSpaces > 0) parts.push(`${totalSpaces} spaces`);
+      return (
+        <span className="text-emerald-600 dark:text-emerald-400">
+          ✓ Found{parts.length > 0 ? ` · ${parts.join(" · ")}` : ""}
+        </span>
+      );
+    }
+    case "not_found":
+      return (
+        <span className="text-destructive">
+          No Hugging Face user with that username
+        </span>
+      );
+    case "invalid":
+      return (
+        <span className="text-destructive">
+          Doesn&apos;t look like a valid Hugging Face username
+        </span>
+      );
     case "error":
       return (
         <span className="text-muted-foreground">

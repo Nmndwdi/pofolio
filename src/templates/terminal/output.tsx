@@ -68,6 +68,18 @@ export function formatExperience(data: LayoutData): FormatResult {
             {e.summary && (
               <div className={styles.entryBody}>{e.summary}</div>
             )}
+            {/* Per-experience skills — what was used in THIS role. Rendered
+                inline as chip-style accents below the summary. Distinct from
+                the global skills section, which is the user's overall toolkit. */}
+            {e.skills && e.skills.length > 0 && (
+              <div className={styles.entrySkills}>
+                {e.skills.map((s, i) => (
+                  <span key={i} className={styles.entrySkillChip}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -95,6 +107,12 @@ export function formatEducation(data: LayoutData): FormatResult {
               )}
             </div>
             {e.degree && <div className={styles.dim}>{e.degree}</div>}
+            {/* Optional description — coursework, GPA, thesis, honors. */}
+            {e.description && (
+              <div className={styles.entryBody} style={{ marginTop: 4 }}>
+                {e.description}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -102,22 +120,48 @@ export function formatEducation(data: LayoutData): FormatResult {
   };
 }
 
-/** skills — comma-separated list, mono spacing */
+/** skills — comma-separated list, mono spacing. Prefers grouped skills if
+ * present (renders each group with its name as a section header). */
 export function formatSkills(data: LayoutData): FormatResult {
-  if (data.skills.length === 0) {
+  // Page loader auto-migrates flat skills → a single group named "Skills",
+  // so we only need to check skillGroups. The flat .skills array is still
+  // available as a backwards-compat path but skillGroups is preferred.
+  const groups = data.skillGroups;
+  if (groups.length === 0) {
     return { node: <span className={styles.dim}>No skills listed.</span> };
   }
+  const hasMultipleGroups = groups.length > 1;
   return {
     node: (
       <div>
         <div className={styles.outputSection}>skills</div>
-        <div className={styles.chipRow}>
-          {data.skills.map((s) => (
-            <span key={s} className={styles.chip}>
-              {s}
-            </span>
-          ))}
-        </div>
+        {groups.map((g) => (
+          <div key={g.id} style={{ margin: "12px 0" }}>
+            {/* Render group name only when there's more than one — a single
+                "Skills" group from auto-migration shouldn't have a redundant
+                label above it. */}
+            {hasMultipleGroups && g.name && (
+              <div className={styles.entrySub} style={{ marginBottom: 6 }}>
+                {g.name.toLowerCase()}
+              </div>
+            )}
+            {g.description && (
+              <div
+                className={styles.dim}
+                style={{ marginBottom: 8, fontSize: 13 }}
+              >
+                {g.description}
+              </div>
+            )}
+            <div className={styles.chipRow}>
+              {g.skills.map((s) => (
+                <span key={s} className={styles.chip}>
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     ),
   };
@@ -254,7 +298,7 @@ export function formatProjectDetail(
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={deriveCloudinary(img.publicId, "image")}
+                    src={deriveCloudinary(img.publicId, "image", 1200)}
                     alt={img.caption || `image ${i + 1}`}
                     loading="lazy"
                     style={{
@@ -357,7 +401,7 @@ export function formatGithub(
         {g.contributions && (
           <KV
             k="contributions"
-            v={`${g.contributions.total.toLocaleString()}${year ? ` (${year})` : " (last year)"}`}
+            v={`${g.contributions.total.toLocaleString("en-US")}${year ? ` (${year})` : " (last year)"}`}
           />
         )}
         {g.contributions && g.contributions.days.length > 0 && (
@@ -501,7 +545,7 @@ export function formatLeetcode(
         {l.realName && <KV k="name" v={l.realName} />}
         {l.country && <KV k="country" v={l.country} />}
         {l.ranking !== null && (
-          <KV k="rank" v={l.ranking.toLocaleString()} />
+          <KV k="rank" v={l.ranking.toLocaleString("en-US")} />
         )}
         <KV
           k="solved"
@@ -700,9 +744,9 @@ export function formatCodeforces(
                 >
                   <span style={{ color: "var(--t-fg)" }}>{r.contestName}</span>
                   <div className={styles.dim} style={{ fontSize: 11 }}>
-                    rank {r.rank.toLocaleString()} ·{" "}
+                    rank {r.rank.toLocaleString("en-US")} ·{" "}
                     <span style={{ color: deltaColor }}>{deltaStr}</span> ·{" "}
-                    {new Date(r.timestamp * 1000).toLocaleDateString(undefined, {
+                    {new Date(r.timestamp * 1000).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
@@ -741,6 +785,13 @@ export function formatSocials(data: LayoutData): FormatResult {
       url: `https://github.com/${data.socials.github}`,
     });
 
+  // Append user-defined social platforms (Mastodon, Bluesky, ORCID, etc.).
+  // We lowercase the label since the rest of the list is mono-lowercase, but
+  // preserve the user's casing intent inside the rendered link if they want.
+  for (const s of data.customSocials) {
+    entries.push({ label: s.label.toLowerCase(), url: s.url });
+  }
+
   if (entries.length === 0) {
     return { node: <span className={styles.dim}>No social links.</span> };
   }
@@ -748,8 +799,8 @@ export function formatSocials(data: LayoutData): FormatResult {
     node: (
       <div>
         <div className={styles.outputSection}>socials</div>
-        {entries.map((e) => (
-          <div key={e.label} className={styles.kvRow}>
+        {entries.map((e, i) => (
+          <div key={`${e.label}-${i}`} className={styles.kvRow}>
             <span className={styles.kvKey}>{e.label}</span>
             <Link href={e.url} label={e.url} />
           </div>
@@ -834,7 +885,7 @@ export function formatDevto(data: LayoutData): FormatResult {
               <Link href={a.url} label={a.title} />
             </div>
             <div className={styles.dim} style={{ fontSize: 11 }}>
-              {new Date(a.publishedAt).toLocaleDateString(undefined, {
+              {new Date(a.publishedAt).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
                 year: "numeric",
@@ -913,11 +964,22 @@ export function formatLinks(data: LayoutData): FormatResult {
             /* l.url may not parse as URL */
           }
           return (
-            <div key={l.id} className={styles.kvRow}>
-              <span className={styles.kvKey}>{l.label}</span>
-              <span>
-                <Link href={l.url} label={host} />
-              </span>
+            <div key={l.id} style={{ margin: "8px 0" }}>
+              <div className={styles.kvRow}>
+                <span className={styles.kvKey}>{l.label}</span>
+                <span>
+                  <Link href={l.url} label={host} />
+                </span>
+              </div>
+              {/* Optional description rendered indented under the link. */}
+              {l.description && (
+                <div
+                  className={styles.entryBody}
+                  style={{ marginLeft: 0, marginTop: 4 }}
+                >
+                  {l.description}
+                </div>
+              )}
             </div>
           );
         })}
@@ -926,17 +988,32 @@ export function formatLinks(data: LayoutData): FormatResult {
   };
 }
 
-/** files — resume + uploaded files (terminal lists URLs; no inline preview) */
+/** files — resume + uploaded files with inline preview per type.
+ *
+ * PDFs render via <object> so the user can flip pages without leaving the
+ * terminal. Images render as <img> (max-width: 600px). Videos as <video
+ * controls>. Other resource types just get a download link. Each file's
+ * optional description renders below the title in muted body type.
+ *
+ * The terminal aesthetic stays intact — green/amber/blue frame, monospace
+ * header per file ([pdf] resume.pdf · open ↗) — the embedded preview just
+ * sits below the header.
+ */
 export function formatFiles(data: LayoutData): FormatResult {
   const items: Array<{
     label: string;
     url: string;
+    publicId: string;
+    resourceType: "image" | "video" | "raw";
     format: string;
+    description?: string;
   }> = [];
   if (data.resumeCloudinaryId) {
     items.push({
       label: "Resume",
       url: deriveCloudinary(data.resumeCloudinaryId, "raw"),
+      publicId: data.resumeCloudinaryId,
+      resourceType: "raw",
       format: "pdf",
     });
   }
@@ -944,7 +1021,10 @@ export function formatFiles(data: LayoutData): FormatResult {
     items.push({
       label: f.label,
       url: deriveCloudinary(f.publicId, f.resourceType),
+      publicId: f.publicId,
+      resourceType: f.resourceType,
       format: f.format,
+      description: f.description,
     });
   }
   if (items.length === 0) {
@@ -954,18 +1034,59 @@ export function formatFiles(data: LayoutData): FormatResult {
     node: (
       <div>
         <div className={styles.outputSection}>files ({items.length})</div>
-        {items.map((f, i) => (
-          <div key={`${f.label}-${i}`} style={{ margin: "4px 0" }}>
-            <span className={styles.accent}>[{f.format || "file"}]</span>{" "}
-            <span style={{ color: "var(--t-fg)" }}>{f.label}</span>{" "}
-            <Link href={f.url} label="open" />
-          </div>
-        ))}
-        <div className={styles.dim} style={{ marginTop: 8, fontSize: 12 }}>
-          Tip: type{" "}
-          <span className={styles.accent}>pdf</span> to download the portfolio
-          as PDF.
-        </div>
+        {items.map((f, i) => {
+          const isPdf =
+            f.resourceType === "raw" && f.format.toLowerCase() === "pdf";
+          const isImage = f.resourceType === "image";
+          const isVideo = f.resourceType === "video";
+          return (
+            <div key={`${f.label}-${i}`} className={styles.fileBlock}>
+              <div className={styles.fileBlockHead}>
+                <span className={styles.accent}>
+                  [{f.format || "file"}]
+                </span>{" "}
+                <span style={{ color: "var(--t-fg)" }}>{f.label}</span>{" "}
+                <Link href={f.url} label="open" />
+              </div>
+              {f.description && (
+                <div className={styles.fileBlockDescription}>
+                  {f.description}
+                </div>
+              )}
+              {/* Inline preview keyed by resource type. */}
+              {isPdf && (
+                <object
+                  data={f.url}
+                  type="application/pdf"
+                  className={styles.fileBlockPdf}
+                  aria-label={f.label}
+                >
+                  <p className={styles.dim}>
+                    Browser can&apos;t preview this PDF —{" "}
+                    <Link href={f.url} label="open in new tab" />.
+                  </p>
+                </object>
+              )}
+              {isImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={deriveCloudinary(f.publicId, "image", 1200)}
+                  alt={f.label}
+                  className={styles.fileBlockImage}
+                  loading="lazy"
+                />
+              )}
+              {isVideo && (
+                <video
+                  src={f.url}
+                  controls
+                  className={styles.fileBlockVideo}
+                  preload="metadata"
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     ),
   };
@@ -1245,7 +1366,7 @@ function AsciiHeatmap({
       // weeks of each other.
       if (w - lastLabelWeek >= 2) {
         monthLabel[w] = firstRealDate
-          .toLocaleString(undefined, { month: "short" })
+          .toLocaleString("en-US", { month: "short" })
           .slice(0, 3);
         lastLabelWeek = w;
       }
@@ -1585,7 +1706,7 @@ function AsciiLineChart({
   const dateRange = (() => {
     // tMin/tMax are unix seconds OR ms — normalize to ms by checking magnitude
     const toDate = (t: number) =>
-      new Date(t < 1e12 ? t * 1000 : t).toLocaleDateString(undefined, {
+      new Date(t < 1e12 ? t * 1000 : t).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
       });
@@ -1641,6 +1762,9 @@ function AsciiLineChart({
 function deriveCloudinary(
   publicId: string,
   resourceType: "image" | "video" | "raw",
+  /** Optional width — applies the c_limit transformation when set so images
+   * don't blow up to original size. Ignored for non-image types. */
+  width?: number,
 ): string {
   // process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD is set at build time; if missing
   // we fall back to the cloud name embedded in publicId-prefixed URLs, but
@@ -1649,7 +1773,14 @@ function deriveCloudinary(
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD ||
     "demo";
-  return `https://res.cloudinary.com/${cloud}/${resourceType}/upload/${publicId}`;
+  // Width-limit transformation: c_limit caps width without forcing it
+  // (smaller originals stay their original size). f_auto + q_auto give
+  // Cloudinary leave to pick the most efficient format/quality per client.
+  const transform =
+    width && resourceType === "image"
+      ? `w_${width},c_limit,f_auto,q_auto/`
+      : "";
+  return `https://res.cloudinary.com/${cloud}/${resourceType}/upload/${transform}${publicId}`;
 }
 
 /* ─── Local-time date helpers ──────────────────────────────────────────

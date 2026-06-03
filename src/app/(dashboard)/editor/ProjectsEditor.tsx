@@ -27,7 +27,8 @@ import { clientPreviewUrl } from "@/lib/uploadClient";
  */
 
 export function ProjectsEditor() {
-  const { control, register, watch } = useFormContext<ProfileFormInput>();
+  const { control, register, watch, setValue, getValues } =
+    useFormContext<ProfileFormInput>();
   const { fields, append, remove } = useFieldArray({
     control,
     name: "projects",
@@ -225,12 +226,40 @@ export function ProjectsEditor() {
                   </div>
 
                   {/* Featured toggle — large card vs compact row on the
-                      public page. */}
+                      public page. Only ONE project can be featured at a
+                      time; checking this auto-unchecks all others. */}
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      {...register(`projects.${i}.featured`)}
-                      className="rounded"
+                    <Controller
+                      name={`projects.${i}.featured`}
+                      control={control}
+                      render={({ field }) => (
+                        <input
+                          type="checkbox"
+                          checked={!!field.value}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            field.onChange(checked);
+                            if (checked) {
+                              // Single-featured invariant: when one is
+                              // turned on, clear it on every other project.
+                              // Done via setValue with shouldDirty so RHF
+                              // tracks the change for the unsaved-changes
+                              // bar.
+                              const all = getValues("projects") ?? [];
+                              all.forEach((p, idx) => {
+                                if (idx !== i && p.featured) {
+                                  setValue(
+                                    `projects.${idx}.featured`,
+                                    false,
+                                    { shouldDirty: true },
+                                  );
+                                }
+                              });
+                            }
+                          }}
+                          className="rounded"
+                        />
+                      )}
                     />
                     <span>Featured (renders larger on the public page)</span>
                   </label>

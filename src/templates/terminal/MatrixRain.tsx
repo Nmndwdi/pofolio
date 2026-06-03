@@ -114,8 +114,30 @@ export function MatrixRain({ enabled }: Props) {
     }
 
     window.addEventListener("resize", resize);
+
+    // Pause the rAF loop while the print dialog is open. The canvas's
+    // continuous redraws kept Chrome's paint pipeline busy, blocking the
+    // print-preview render from settling. We cancel the rAF on `beforeprint`
+    // and restart it on `afterprint` so animation resumes when the user
+    // dismisses the dialog.
+    const onBeforePrint = () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+    const onAfterPrint = () => {
+      if (rafRef.current === null && !reduceMotion) {
+        rafRef.current = requestAnimationFrame(draw);
+      }
+    };
+    window.addEventListener("beforeprint", onBeforePrint);
+    window.addEventListener("afterprint", onAfterPrint);
+
     return () => {
       window.removeEventListener("resize", resize);
+      window.removeEventListener("beforeprint", onBeforePrint);
+      window.removeEventListener("afterprint", onAfterPrint);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, [enabled]);

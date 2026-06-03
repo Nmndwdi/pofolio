@@ -13,6 +13,7 @@ import { SidebarLayout } from "@/components/layouts/SidebarLayout";
 import { SinglePageLayout } from "@/components/layouts/SinglePageLayout";
 import { TerminalTemplate } from "@/templates/terminal";
 import { BrutalistTemplate } from "@/templates/brutalist";
+import { PressTemplate } from "@/templates/press";
 import type { LayoutData } from "@/components/layouts/types";
 
 /*
@@ -83,6 +84,26 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
         : Promise.resolve(null),
     ]);
 
+  // Auto-migration: if the user has flat `skills` but no `skillGroups`,
+  // expose a synthetic single group named "Skills" to templates. This way
+  // every template can render `data.skillGroups` and get something useful
+  // without special-casing the empty path. If the user has both, we keep
+  // both — templates may choose to merge them or render them separately.
+  const flatSkills = profile.skills ?? [];
+  const userGroups = profile.skillGroups ?? [];
+  const skillGroupsForTemplates =
+    userGroups.length > 0
+      ? userGroups
+      : flatSkills.length > 0
+        ? [
+            {
+              id: "default",
+              name: "Skills",
+              skills: flatSkills,
+            },
+          ]
+        : [];
+
   const data: LayoutData = {
     slug: profile.slug,
     displayName: profile.displayName,
@@ -99,9 +120,11 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
     devto,
     huggingface,
     customLinks: profile.customLinks ?? [],
+    customSocials: profile.customSocials ?? [],
     experience: profile.experience ?? [],
     education: profile.education ?? [],
-    skills: profile.skills ?? [],
+    skills: flatSkills,
+    skillGroups: skillGroupsForTemplates,
     resumeCloudinaryId: profile.resumeCloudinaryId ?? undefined,
     files: profile.files ?? [],
     projects: profile.projects ?? [],
@@ -143,6 +166,10 @@ function LayoutRenderer({
     case "brutalist":
       // Self-contained — neo-brutalism, scoped CSS, own design system.
       return <BrutalistTemplate data={data} />;
+    case "press":
+      // Self-contained — editorial newspaper, oxblood-on-cream, kinetic
+      // typography, scoped CSS. No CLI, no widgets — just typography.
+      return <PressTemplate data={data} />;
     case "multipage":
     case "grid":
       return <SidebarLayout data={data} />;

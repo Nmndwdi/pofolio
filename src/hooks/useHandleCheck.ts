@@ -51,14 +51,32 @@ export function useHandleCheck<P = Record<string, unknown>>(
           setStatus({ state: "error" });
           return;
         }
-        const json = (await res.json()) as
-          | { status: "ok"; user: P }
-          | { status: "invalid" | "not_found" };
+        // The check endpoints have evolved over time and use slightly
+        // different field names for the "ok" payload:
+        //   - github  → `user`
+        //   - codeforces → `user`
+        //   - leetcode → `user`
+        //   - devto + huggingface (newer) → `preview`
+        // Rather than migrate every endpoint, we accept whichever is present
+        // — `preview` takes priority since it's the convention going forward.
+        const json = (await res.json()) as {
+          status: "ok" | "invalid" | "not_found";
+          preview?: P;
+          user?: P;
+        };
 
         switch (json.status) {
-          case "ok":
-            setStatus({ state: "ok", preview: json.user });
+          case "ok": {
+            const payload = json.preview ?? json.user;
+            if (!payload) {
+              // Endpoint returned status:ok but no payload field we recognise
+              // — treat as error rather than crash the renderer.
+              setStatus({ state: "error" });
+              break;
+            }
+            setStatus({ state: "ok", preview: payload });
             break;
+          }
           case "invalid":
             setStatus({ state: "invalid" });
             break;

@@ -14,7 +14,7 @@ import type { ThemeId, LayoutId } from "@/lib/validators/profile";
  */
 
 const VALID_THEMES: ThemeId[] = ["mono", "paper", "terminal", "glass"];
-const VALID_LAYOUTS: LayoutId[] = ["sidebar", "single", "multipage", "grid", "terminal", "brutalist"];
+const VALID_LAYOUTS: LayoutId[] = ["sidebar", "single", "multipage", "grid", "terminal", "brutalist", "press"];
 
 export function resolveTheme(stored: unknown): ThemeId {
   if (typeof stored !== "string") return "mono";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import type { LayoutData } from "@/components/layouts/types";
 import { deriveUrl } from "@/lib/cloudinary-url";
 import styles from "./brutalist.module.css";
@@ -87,6 +87,18 @@ export function ExperienceSection({ data }: { data: LayoutData }) {
               </>
             )}
             {e.summary && <p className={styles.expSummary}>{e.summary}</p>}
+            {/* Per-experience skills — what was used in THIS role. Rendered
+                inline below the summary as small accented chips. Distinct
+                from the global skills list. */}
+            {e.skills && e.skills.length > 0 && (
+              <ul className={styles.expSkills}>
+                {e.skills.map((s) => (
+                  <li key={s} className={styles.expSkillChip}>
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <span />
         </li>
@@ -103,9 +115,13 @@ export function EducationSection({ data }: { data: LayoutData }) {
     <ul className={styles.eduList}>
       {data.education.map((e) => (
         <li key={e.id} className={styles.eduItem}>
-          <div>
+          <div className={styles.eduMain}>
             <div className={styles.eduInst}>{e.institution}</div>
             {e.degree && <div className={styles.eduDegree}>{e.degree}</div>}
+            {/* Optional description — coursework, GPA, thesis, honors. */}
+            {e.description && (
+              <p className={styles.eduDescription}>{e.description}</p>
+            )}
           </div>
           {e.dates && <span className={styles.eduDates}>{e.dates}</span>}
         </li>
@@ -117,15 +133,36 @@ export function EducationSection({ data }: { data: LayoutData }) {
 /* ─── Skills ───────────────────────────────────────────────────── */
 
 export function SkillsSection({ data }: { data: LayoutData }) {
-  if (data.skills.length === 0) return null;
+  // Page loader auto-migrates flat skills → a single group named "Skills",
+  // so we only need to check skillGroups. The flat .skills array is still
+  // available as a backwards-compat path but skillGroups is preferred.
+  const groups = data.skillGroups;
+  if (groups.length === 0) return null;
+  const hasMultipleGroups = groups.length > 1;
+
   return (
-    <ul className={styles.skillList}>
-      {data.skills.map((s) => (
-        <li key={s} className={styles.skillChip}>
-          {s}
-        </li>
+    <div className={styles.skillsWrap}>
+      {groups.map((g) => (
+        <div key={g.id} className={styles.skillGroup}>
+          {/* Only show group name if there are multiple groups — the auto-
+              migrated single "Skills" group shouldn't have a redundant
+              header above its chips. */}
+          {hasMultipleGroups && g.name && (
+            <h3 className={styles.skillGroupName}>{g.name}</h3>
+          )}
+          {g.description && (
+            <p className={styles.skillGroupDescription}>{g.description}</p>
+          )}
+          <ul className={styles.skillList}>
+            {g.skills.map((s) => (
+              <li key={s} className={styles.skillChip}>
+                {s}
+              </li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -268,17 +305,15 @@ export function GitHubStats({ data }: { data: LayoutData }) {
   if (!g) return null;
   return (
     <StatGrid>
-      <Stat value={String(g.user.publicRepos)} label="repositories" accent />
-      <Stat value={String(g.user.followers)} label="followers" />
       <Stat
-        value={
-          g.contributions
-            ? g.contributions.total.toLocaleString()
-            : "—"
-        }
-        label="contributions / year"
+        value={`@${g.user.login}`}
+        label="handle"
+        accent
+        href={`https://github.com/${g.user.login}`}
       />
-      <Stat value={`@${g.user.login}`} label="handle" />
+      <Stat value={String(g.user.publicRepos)} label="repositories" />
+      <Stat value={String(g.totalStars)} label="stars" />
+      <Stat value={String(g.user.followers)} label="followers" />
     </StatGrid>
   );
 }
@@ -286,34 +321,181 @@ export function GitHubStats({ data }: { data: LayoutData }) {
 export function LeetCodeStats({ data }: { data: LayoutData }) {
   const l = data.leetcode?.data;
   if (!l) return null;
+  // Approximate problem-pool totals — see same constant in the
+  // single-page LeetCodeSection. Not authoritative but matches the ratios
+  // visitors see in the canonical view.
+  const TOTALS = { easy: 875, medium: 1900, hard: 860 };
+  const maxStreak = computeMaxStreak(l.submissionHeatmap);
   return (
-    <StatGrid>
-      <Stat value={String(l.totalSolved)} label="solved" accent />
-      <Stat value={String(l.easySolved)} label="easy" />
-      <Stat value={String(l.mediumSolved)} label="medium" />
-      <Stat value={String(l.hardSolved)} label="hard" />
-    </StatGrid>
+    <>
+      <StatGrid>
+        <Stat
+          value={`@${l.username}`}
+          label="handle"
+          accent
+          href={`https://leetcode.com/u/${l.username}/`}
+        />
+        <Stat value={String(l.totalSolved)} label="solved" />
+        <Stat
+          value={l.ranking !== null ? l.ranking.toLocaleString("en-US") : "—"}
+          label="rank"
+        />
+        <Stat value={l.country ?? "—"} label="country" />
+      </StatGrid>
+      {/* Difficulty breakdown — rendered as ratios out of the approximate
+          problem pool. Mirrors what single-page LeetCode shows. */}
+      <div className={styles.lcRatioRow}>
+        <RatioBar
+          label="Easy"
+          solved={l.easySolved}
+          total={TOTALS.easy}
+        />
+        <RatioBar
+          label="Medium"
+          solved={l.mediumSolved}
+          total={TOTALS.medium}
+        />
+        <RatioBar
+          label="Hard"
+          solved={l.hardSolved}
+          total={TOTALS.hard}
+        />
+      </div>
+      <StatGrid>
+        <Stat value={`${l.currentStreak ?? 0}`} label="current streak" />
+        <Stat value={`${maxStreak}`} label="max streak" />
+        <Stat
+          value={`${l.totalActiveDays ?? 0}`}
+          label="active days"
+        />
+        <Stat
+          value={
+            l.contestHistory && l.contestHistory.length > 0
+              ? String(
+                  l.contestHistory[l.contestHistory.length - 1]?.rating ??
+                    "—",
+                )
+              : "—"
+          }
+          label="contest rating"
+        />
+      </StatGrid>
+    </>
   );
 }
 
 export function CodeforcesStats({ data }: { data: LayoutData }) {
   const c = data.codeforces?.data;
   if (!c) return null;
-  return (
-    <StatGrid>
-      <Stat
-        value={c.user.rating !== null ? String(c.user.rating) : "—"}
-        label="rating"
-        accent
-      />
-      <Stat
-        value={c.user.maxRating !== null ? String(c.user.maxRating) : "—"}
-        label="max rating"
-      />
-      <Stat value={String(c.contestsParticipated)} label="contests" />
-      <Stat value={c.user.rank ?? "—"} label="rank" />
-    </StatGrid>
+  const totalSubmissions = (c.submissionHeatmap ?? []).reduce(
+    (s, d) => s + d.count,
+    0,
   );
+  const activeDays = (c.submissionHeatmap ?? []).filter((d) => d.count > 0)
+    .length;
+  const maxStreak = computeMaxStreak(c.submissionHeatmap);
+  return (
+    <>
+      <StatGrid>
+        <Stat
+          value={`@${c.user.handle}`}
+          label="handle"
+          accent
+          href={`https://codeforces.com/profile/${c.user.handle}`}
+        />
+        <Stat
+          value={c.user.rating !== null ? String(c.user.rating) : "—"}
+          label="rating"
+        />
+        <Stat
+          value={c.user.maxRating !== null ? String(c.user.maxRating) : "—"}
+          label="max rating"
+        />
+        <Stat value={c.user.rank ?? "—"} label="rank" />
+      </StatGrid>
+      <StatGrid>
+        <Stat value={String(c.contestsParticipated)} label="contests" />
+        <Stat value={String(totalSubmissions)} label="submissions" />
+        <Stat value={String(activeDays)} label="active days" />
+        <Stat value={String(maxStreak)} label="max streak" />
+      </StatGrid>
+      {(c.user.country || c.user.organization) && (
+        <StatGrid>
+          {c.user.country && (
+            <Stat value={c.user.country} label="country" />
+          )}
+          {c.user.organization && (
+            <Stat value={c.user.organization} label="organization" />
+          )}
+        </StatGrid>
+      )}
+    </>
+  );
+}
+
+/* Difficulty ratio bar — used in LeetCode for Easy/Medium/Hard breakdowns.
+ * Renders as a bordered horizontal bar with a fill proportional to
+ * solved/total. The brutalist version uses sharp borders, no rounded
+ * corners, and color-codes by difficulty (green/yellow/red is too
+ * conventional — we use accent yellow + black + ink-darker tones). */
+function RatioBar({
+  label,
+  solved,
+  total,
+}: {
+  label: string;
+  solved: number;
+  total: number;
+}) {
+  const pct = total > 0 ? Math.min(100, (solved / total) * 100) : 0;
+  return (
+    <div className={styles.ratioBar}>
+      <div className={styles.ratioHead}>
+        <span className={styles.ratioLabel}>{label}</span>
+        <span className={styles.ratioCount}>
+          {solved} <span className={styles.ratioTotal}>/ {total}</span>
+        </span>
+      </div>
+      <div className={styles.ratioTrack}>
+        <div
+          className={styles.ratioFill}
+          style={{ width: `${pct}%` }}
+          data-difficulty={label.toLowerCase()}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* Max-streak computation — shared between LeetCode and Codeforces.
+ * A streak is a run of consecutive days with count > 0. Returns 0 for
+ * empty input. */
+function computeMaxStreak(
+  heatmap: Array<{ date: string; count: number }> | undefined,
+): number {
+  if (!heatmap || heatmap.length === 0) return 0;
+  const sorted = [...heatmap].sort((a, b) => a.date.localeCompare(b.date));
+  let max = 0;
+  let cur = 0;
+  let prevDate: Date | null = null;
+  for (const d of sorted) {
+    if (d.count === 0) {
+      cur = 0;
+      prevDate = null;
+      continue;
+    }
+    const today = new Date(d.date);
+    if (prevDate) {
+      const diff =
+        (today.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000);
+      cur = diff === 1 ? cur + 1 : 1;
+    } else {
+      cur = 1;
+    }
+    if (cur > max) max = cur;
+    prevDate = today;
+  }
+  return max;
 }
 
 function StatGrid({ children }: { children: ReactNode }) {
@@ -324,38 +506,101 @@ function Stat({
   value,
   label,
   accent,
+  href,
 }: {
   value: string;
   label: string;
   accent?: boolean;
+  /** When provided, the entire stat card becomes a link. */
+  href?: string;
 }) {
-  return (
-    <div className={styles.statCard} data-accent={accent ? "true" : "false"}>
+  const content = (
+    <>
       <div className={styles.statValue}>{value}</div>
       <div className={styles.statLabel}>{label}</div>
+    </>
+  );
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.statCard}
+        data-accent={accent ? "true" : "false"}
+        data-link="true"
+        data-cursor="hover"
+      >
+        {content}
+      </a>
+    );
+  }
+  return (
+    <div className={styles.statCard} data-accent={accent ? "true" : "false"}>
+      {content}
     </div>
   );
 }
 
 /* ─── Contribution heatmap (used by GitHub/LeetCode/Codeforces) ─────
- * Hand-rolled grid (no Recharts). Each cell is a 14×14 box with a data-level
- * attribute (0-4) — CSS handles the fills. 53 weeks wide, 7 rows tall.
+ * Brutalist take on the GitHub-style year grid. Differences from a stock
+ * GitHub heatmap:
+ *   - 2px black borders around each cell (no gaps, no rounded corners)
+ *   - Active cells use the hazard-yellow accent; peak activity goes ink-black
+ *   - Year tabs are brutalist-bordered buttons (no rounded corners)
+ *   - Always renders a full Jan 1 → Dec 31 grid when year-filtered, so
+ *     spacing stays identical across years (future days in the current
+ *     year render as blank — they still claim grid space)
+ *
+ * Calendar bucketing: cells lay out by (week-from-window-start, day-of-week)
+ * — same logic the terminal template uses. Without this, sparse data would
+ * pack into the leftmost columns instead of spanning months evenly.
  */
+
 function ContributionHeatmap({
   days,
   totalLabel,
+  defaultYear,
 }: {
   days: Array<{ date: string; count: number }>;
   totalLabel?: string;
+  /** Pre-select this year if available. Falls back to most recent year. */
+  defaultYear?: number;
 }) {
-  // Bucket cells into 5 levels (0 = empty, 4 = max). We anchor to the max in
-  // the visible window so a quiet user's "1 submission" doesn't render as
-  // empty — relative scale, not absolute.
-  const max = useMemo(
-    () => days.reduce((m, d) => (d.count > m ? d.count : m), 0),
-    [days],
+  // Available years across the input data, newest first.
+  const availableYears = useMemo(() => {
+    return Array.from(
+      new Set(days.map((d) => new Date(d.date).getFullYear())),
+    ).sort((a, b) => b - a);
+  }, [days]);
+
+  // Default to most recent year so the heatmap always renders a single
+  // year's grid (consistent spacing across the three sections).
+  const [selectedYear, setSelectedYear] = useState<number>(
+    defaultYear ?? availableYears[0] ?? new Date().getFullYear(),
   );
-  const levelFor = (count: number): 0 | 1 | 2 | 3 | 4 => {
+
+  // Filter to selected year.
+  const filtered = useMemo(
+    () =>
+      days.filter((d) => new Date(d.date).getFullYear() === selectedYear),
+    [days, selectedYear],
+  );
+
+  if (filtered.length === 0) {
+    return (
+      <div className={styles.heatmapWrap}>
+        <div className={styles.heatmapMeta}>
+          <span>No activity for {selectedYear}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Bucket activity into 5 levels using the year's max as upper bound
+  // (relative scale — a quiet user's "1 commit" still reads as activity).
+  const max = filtered.reduce((m, d) => (d.count > m ? d.count : m), 0);
+  const levelFor = (count: number): -1 | 0 | 1 | 2 | 3 | 4 => {
     if (count === 0) return 0;
     if (max <= 1) return 4;
     const r = count / max;
@@ -365,20 +610,136 @@ function ContributionHeatmap({
     return 1;
   };
 
+  // Calendar window: always Jan 1 → Dec 31. Future days for the current
+  // year render as -1 (blank) so spacing stays identical across years.
+  const windowStart = new Date(selectedYear, 0, 1);
+  const windowEnd = new Date(selectedYear, 11, 31);
+  const renderStart = new Date(windowStart);
+  renderStart.setDate(renderStart.getDate() - renderStart.getDay()); // back to Sunday
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const totalDays =
+    Math.floor((windowEnd.getTime() - renderStart.getTime()) / msPerDay) + 1;
+  const totalWeeks = Math.ceil(totalDays / 7);
+
+  // Date → count map, using local-time keys to match the data layer's strings.
+  const byDate = new Map(filtered.map((d) => [d.date, d.count]));
+
+  // Build the cell grid: rows[day-of-week][week-index] = level.
+  const grid: Array<Array<-1 | 0 | 1 | 2 | 3 | 4>> = Array.from(
+    { length: 7 },
+    () => new Array<-1 | 0 | 1 | 2 | 3 | 4>(totalWeeks).fill(-1),
+  );
+  for (let w = 0; w < totalWeeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const cellDate = new Date(renderStart);
+      cellDate.setDate(cellDate.getDate() + w * 7 + d);
+      if (
+        cellDate < windowStart ||
+        cellDate > windowEnd ||
+        cellDate > today
+      ) {
+        grid[d][w] = -1;
+        continue;
+      }
+      const y = cellDate.getFullYear();
+      const m = String(cellDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(cellDate.getDate()).padStart(2, "0");
+      const iso = `${y}-${m}-${dd}`;
+      grid[d][w] = levelFor(byDate.get(iso) ?? 0);
+    }
+  }
+
+  // Month labels: for each column, use the month of the first non-blank
+  // day in that column (handles year-boundary partial weeks correctly).
+  const monthLabel = new Array<string>(totalWeeks).fill("");
+  let prevMonth = -1;
+  let lastLabelWeek = -10;
+  for (let w = 0; w < totalWeeks; w++) {
+    let firstRealDate: Date | null = null;
+    for (let d = 0; d < 7; d++) {
+      if (grid[d][w] !== -1) {
+        const cd = new Date(renderStart);
+        cd.setDate(cd.getDate() + w * 7 + d);
+        firstRealDate = cd;
+        break;
+      }
+    }
+    if (!firstRealDate) continue;
+    const m = firstRealDate.getMonth();
+    if (m !== prevMonth) {
+      if (w - lastLabelWeek >= 2) {
+        monthLabel[w] = firstRealDate
+          .toLocaleString("en-US", { month: "short" })
+          .slice(0, 3);
+        lastLabelWeek = w;
+      }
+      prevMonth = m;
+    }
+  }
+
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const totalCount = filtered.reduce((s, d) => s + d.count, 0);
+  const activeDays = filtered.filter((d) => d.count > 0).length;
+
   return (
     <div className={styles.heatmapWrap}>
       <div className={styles.heatmapMeta}>
-        <span>{totalLabel ?? `${days.length} days tracked`}</span>
+        <span>
+          {totalLabel ??
+            `${totalCount.toLocaleString("en-US")} contributions · ${activeDays} active days`}
+        </span>
         <span>less ▢ ▢ ▢ ▢ ▢ more</span>
       </div>
-      <div className={styles.heatmapGrid} role="img" aria-label="Contribution heatmap">
-        {days.map((d) => (
-          <div
-            key={d.date}
-            className={styles.heatmapCell}
-            data-level={levelFor(d.count)}
-            title={`${d.count} on ${d.date}`}
-          />
+
+      {/* Year selector tabs. Brutalist treatment: bordered buttons, no
+          rounded corners. Active year gets the hazard-yellow accent fill. */}
+      {availableYears.length > 1 && (
+        <div className={styles.heatmapYears}>
+          {availableYears.map((y) => (
+            <button
+              key={y}
+              type="button"
+              onClick={() => setSelectedYear(y)}
+              className={styles.heatmapYearBtn}
+              data-active={y === selectedYear}
+              data-cursor="hover"
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Grid + month labels. CSS Grid template defined inline so we can
+          parameterize the column count. The day-label column is fixed-width
+          (2.5em); the N week columns each share equal space (1fr min 8px). */}
+      <div
+        className={styles.heatmapCalendar}
+        style={{
+          gridTemplateColumns: `2.5em repeat(${totalWeeks}, minmax(8px, 1fr))`,
+        }}
+      >
+        {/* Month-label row (row 1: empty corner + month labels) */}
+        <span />
+        {monthLabel.map((m, i) => (
+          <span key={`m-${i}`} className={styles.heatmapMonth}>
+            {m || "\u00A0"}
+          </span>
+        ))}
+        {/* 7 day rows. Each row: day label + N cells. */}
+        {grid.map((row, dayIdx) => (
+          <Fragment key={`d-${dayIdx}`}>
+            <span className={styles.heatmapDay}>{dayLabels[dayIdx]}</span>
+            {row.map((level, weekIdx) => (
+              <div
+                key={`c-${dayIdx}-${weekIdx}`}
+                className={styles.heatmapCell}
+                data-level={level}
+              />
+            ))}
+          </Fragment>
         ))}
       </div>
     </div>
@@ -484,10 +845,25 @@ export function GitHubFull({ data }: { data: LayoutData }) {
   return (
     <div style={{ display: "grid", gap: 24 }}>
       <GitHubStats data={data} />
+      {g.languageBreakdown && g.languageBreakdown.length > 0 && (
+        <div className={styles.langGrid}>
+          {g.languageBreakdown.map((l) => (
+            <span key={l.language} className={styles.langChip}>
+              <span
+                className={styles.langDot}
+                style={{ background: languageColor(l.language) }}
+                aria-hidden
+              />
+              {l.language}
+              <span className={styles.langCount}>×{l.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
       {g.contributions && g.contributions.days.length > 0 && (
         <ContributionHeatmap
           days={g.contributions.days}
-          totalLabel={`${g.contributions.total.toLocaleString()} contributions / year`}
+          totalLabel={`${g.contributions.total.toLocaleString("en-US")} contributions / year`}
         />
       )}
     </div>
@@ -501,12 +877,15 @@ export function LeetCodeFull({ data }: { data: LayoutData }) {
     <div style={{ display: "grid", gap: 24 }}>
       <LeetCodeStats data={data} />
       {l.submissionHeatmap && l.submissionHeatmap.length > 0 && (
-        <ContributionHeatmap
-          days={l.submissionHeatmap}
-          totalLabel={`${l.submissionHeatmap.reduce(
-            (s, d) => s + d.count,
-            0,
-          )} submissions tracked`}
+        <ContributionHeatmap days={l.submissionHeatmap} />
+      )}
+      {l.contestHistory && l.contestHistory.length >= 2 && (
+        <RatingChart
+          points={l.contestHistory.map((c) => ({
+            t: c.timestamp * 1000,
+            rating: c.rating,
+          }))}
+          label="Contest rating"
         />
       )}
     </div>
@@ -527,16 +906,100 @@ export function CodeforcesFull({ data }: { data: LayoutData }) {
         <RatingChart points={ratingPoints} label="Rating history" />
       )}
       {c.submissionHeatmap && c.submissionHeatmap.length > 0 && (
-        <ContributionHeatmap
-          days={c.submissionHeatmap}
-          totalLabel={`${c.submissionHeatmap.reduce(
-            (s, d) => s + d.count,
-            0,
-          )} submissions tracked`}
-        />
+        <ContributionHeatmap days={c.submissionHeatmap} />
+      )}
+      {c.recentContests && c.recentContests.length > 0 && (
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--b-font-mono), monospace",
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: 10,
+            }}
+          >
+            Recent contests
+          </div>
+          <div className={styles.recentContests}>
+            {c.recentContests.slice(0, 6).map((r) => {
+              const delta = r.newRating - r.oldRating;
+              const sign = delta >= 0 ? "+" : "";
+              return (
+                <a
+                  key={r.contestId}
+                  href={`https://codeforces.com/contest/${r.contestId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.recentContestRow}
+                  data-cursor="hover"
+                >
+                  <span className={styles.recentContestName}>
+                    {r.contestName}
+                  </span>
+                  <span className={styles.recentContestMeta}>
+                    rank {r.rank.toLocaleString("en-US")} ·{" "}
+                    <span
+                      className={
+                        delta >= 0
+                          ? styles.recentContestPositive
+                          : styles.recentContestNegative
+                      }
+                    >
+                      {sign}
+                      {delta}
+                    </span>{" "}
+                    ·{" "}
+                    {new Date(r.timestamp * 1000).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
+}
+
+/* GitHub-style language color dot. A small subset of GitHub's linguist
+ * palette. Inlined in this template (rather than imported from a shared
+ * module) to keep the brutalist template fully self-contained. */
+function languageColor(lang: string): string {
+  const map: Record<string, string> = {
+    JavaScript: "#f1e05a",
+    TypeScript: "#3178c6",
+    Python: "#3572A5",
+    Java: "#b07219",
+    "C++": "#f34b7d",
+    C: "#888888",
+    "C#": "#178600",
+    Go: "#00ADD8",
+    Rust: "#dea584",
+    Ruby: "#701516",
+    PHP: "#4F5D95",
+    Swift: "#F05138",
+    Kotlin: "#A97BFF",
+    Dart: "#00B4AB",
+    HTML: "#e34c26",
+    CSS: "#563d7c",
+    SCSS: "#c6538c",
+    Shell: "#89e051",
+    Vue: "#41b883",
+    Svelte: "#ff3e00",
+    Lua: "#5b8aa7",
+    R: "#198CE7",
+    Scala: "#c22d40",
+    Haskell: "#5e5086",
+    Elixir: "#6e4a7e",
+    Jupyter: "#DA5B0B",
+  };
+  return map[lang] ?? "#888";
 }
 
 /* ─── Dev.to writing list ──────────────────────────────────────── */
@@ -557,7 +1020,7 @@ export function WritingSection({ data }: { data: LayoutData }) {
           >
             <h3 className={styles.articleTitle}>{a.title}</h3>
             <div className={styles.articleMeta}>
-              {new Date(a.publishedAt).toLocaleDateString(undefined, {
+              {new Date(a.publishedAt).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
                 year: "numeric",
@@ -620,6 +1083,9 @@ export function LinksSection({ data }: { data: LayoutData }) {
             className={styles.linkItem}
           >
             <span className={styles.linkLabel}>{l.label}</span>
+            {l.description && (
+              <span className={styles.linkDescription}>{l.description}</span>
+            )}
             <span className={styles.linkHost}>{host} ↗</span>
           </a>
         );
@@ -637,6 +1103,7 @@ export function FilesSection({ data }: { data: LayoutData }) {
     publicId: string;
     resourceType: "image" | "video" | "raw";
     format: string;
+    description?: string;
   }> = [];
   if (data.resumeCloudinaryId) {
     items.push({
@@ -654,6 +1121,7 @@ export function FilesSection({ data }: { data: LayoutData }) {
       publicId: f.publicId,
       resourceType: f.resourceType,
       format: f.format,
+      description: f.description,
     });
   }
   if (items.length === 0) return null;
@@ -666,6 +1134,7 @@ export function FilesSection({ data }: { data: LayoutData }) {
           publicId={f.publicId}
           resourceType={f.resourceType}
           format={f.format}
+          description={f.description}
         />
       ))}
     </ul>
@@ -677,11 +1146,13 @@ function FileBlock({
   publicId,
   resourceType,
   format,
+  description,
 }: {
   label: string;
   publicId: string;
   resourceType: "image" | "video" | "raw";
   format: string;
+  description?: string;
 }) {
   const url = deriveUrl(publicId, { resourceType });
   const fmtLower = format.toLowerCase();
@@ -702,6 +1173,9 @@ function FileBlock({
           Open ↗
         </a>
       </div>
+      {description && (
+        <p className={styles.fileDescription}>{description}</p>
+      )}
       {isPdf && (
         <object
           data={url}
@@ -753,12 +1227,17 @@ export function SocialsStrip({ data }: { data: LayoutData }) {
       label: "GitHub",
       href: `https://github.com/${data.socials.github}`,
     });
+  // User-defined social platforms (Mastodon, Bluesky, ORCID, Polywork, ...).
+  // Appended after the fixed five, same visual treatment.
+  for (const s of data.customSocials) {
+    entries.push({ label: s.label, href: s.url });
+  }
   if (entries.length === 0) return null;
   return (
     <div className={styles.socialsStrip}>
-      {entries.map((e) => (
+      {entries.map((e, i) => (
         <a
-          key={e.label}
+          key={`${e.label}-${i}`}
           href={e.href}
           target="_blank"
           rel="noopener noreferrer"

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { LayoutData } from "@/components/layouts/types";
+import { deriveUrl } from "@/lib/cloudinary-url";
 import styles from "./brutalist.module.css";
 
 /*
@@ -49,6 +50,23 @@ export function Hero({ data }: { data: LayoutData }) {
         <span>POFOLIO / {data.slug}</span>
         <span>{today}</span>
       </div>
+
+      {/* Avatar — only rendered if the user uploaded one. Brutalist treatment:
+          square (no border-radius), hard ink border, offset shadow. Sits
+          above the name so it gets first eye-attention. */}
+      {data.avatarCloudinaryId && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={deriveUrl(data.avatarCloudinaryId, {
+            width: 320,
+            height: 320,
+            crop: "fill",
+          })}
+          alt={data.displayName}
+          className={styles.heroAvatar}
+          loading="eager"
+        />
+      )}
 
       <h1 className={styles.heroName}>
         {lastWord ? (
