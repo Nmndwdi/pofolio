@@ -236,7 +236,7 @@ export const ProfileFormSchema = z.object({
   projects: z.array(ProjectSchema).max(20).default([]),
 
   theme: themeIdSchema.default("mono"),
-  layout: layoutIdSchema.default("sidebar"),
+  layout: layoutIdSchema.default("press"),
 });
 
 export type ProfileFormInput = z.infer<typeof ProfileFormSchema>;

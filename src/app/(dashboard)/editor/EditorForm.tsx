@@ -313,11 +313,47 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
         });
       }
 
-      // Merge skills — union with whatever's already there, deduped.
+      // Merge parsed skills into the first existing skill group, or create
+      // a default "Skills" group if none exist yet. Previously this wrote
+      // into the flat `skills` array, but that field no longer has a UI
+      // (skill groups replaced it). Writing into a group means the user
+      // can see and edit what the parser added.
       if (p.skills.length > 0) {
-        const existing = getValues("skills") ?? [];
-        const merged = [...new Set([...existing, ...p.skills])];
-        setValue("skills", merged, { shouldDirty: true });
+        const groups = getValues("skillGroups") ?? [];
+        if (groups.length === 0) {
+          // Seed a single "Skills" group with the parsed entries.
+          setValue(
+            "skillGroups",
+            [
+              {
+                id: crypto.randomUUID(),
+                name: "Skills",
+                description: "",
+                skills: [...new Set(p.skills)],
+              },
+            ],
+            { shouldDirty: true },
+          );
+        } else {
+          // Merge into the FIRST group (deduped, case-insensitive). Users
+          // who already have curated groups won't see new skills polluting
+          // their "Backend" group with random extracted strings, but the
+          // first group is the most likely "general / catch-all" spot.
+          const first = groups[0];
+          const existingLower = new Set(
+            first.skills.map((s) => s.toLowerCase()),
+          );
+          const additions = p.skills.filter(
+            (s) => !existingLower.has(s.toLowerCase()),
+          );
+          if (additions.length > 0) {
+            setValue(
+              `skillGroups.0.skills`,
+              [...first.skills, ...additions],
+              { shouldDirty: true },
+            );
+          }
+        }
       }
 
       const counts = [
@@ -777,27 +813,15 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
           </button>
         </div>
 
-        {/* Skills (flat) */}
+        {/* Skill groups — the only skills UI now. The flat `skills` field
+            still exists in the schema for backwards-compat (auto-migrated
+            into a single group named "Skills" by the page loader for
+            templates), but new entries should go into groups. Users with
+            existing flat-skills data will see them as group entries on
+            their next load through the synthetic-group migration. */}
         <Field
           label="Skills"
-          hint="Quick chip list. For more structure, use skill groups below."
-        >
-          <Controller
-            name="skills"
-            control={control}
-            render={({ field }) => (
-              <SkillsEditor
-                value={field.value ?? []}
-                onChange={field.onChange}
-              />
-            )}
-          />
-        </Field>
-
-        {/* Skill groups */}
-        <Field
-          label="Skill groups"
-          hint="Organize skills by area — e.g. Backend, DevOps, Frontend."
+          hint="Organize skills by area — e.g. Backend, DevOps, Frontend. Add at least one group."
         >
           <SkillGroupsEditor
             control={control}
@@ -948,12 +972,25 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
           />
         </Field>
 
-        <Field
-          label="Projects"
-          hint="Each project: title, description, links, gallery, tech stack. Up to 20."
-        >
+        {/* ProjectsEditor is intentionally NOT wrapped in a Field. Field
+            renders as `<label>` (no htmlFor), and when a <label> contains
+            form controls without an explicit htmlFor, the browser
+            implicitly associates the label with the FIRST form control
+            inside. That means every click anywhere in the label area is
+            re-dispatched as a click on that first control. For
+            ProjectsEditor this manifested as: clicking in any empty space
+            (between project rows, below the list) fired the first
+            project's toggle/remove button. Rendering the heading manually
+            as a sibling — outside any <label> — sidesteps the implicit
+            association. */}
+        <div className="space-y-1.5">
+          <div className="text-sm font-medium">Projects</div>
+          <div className="text-xs text-muted-foreground">
+            Each project: title, description, links, gallery, tech stack. Up
+            to 20.
+          </div>
           <ProjectsEditor />
-        </Field>
+        </div>
       </Group>
 
       {/* ─── Look ──────────────────────────────────────── */}

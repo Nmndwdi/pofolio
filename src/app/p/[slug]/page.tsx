@@ -8,9 +8,7 @@ import { getCodeforcesData } from "@/lib/integrations/codeforces";
 import { getLeetCodeData } from "@/lib/integrations/leetcode";
 import { getDevToData } from "@/lib/integrations/devto";
 import { getHuggingFaceData } from "@/lib/integrations/huggingface";
-import { resolveTheme, resolveLayout } from "@/lib/theme";
-import { SidebarLayout } from "@/components/layouts/SidebarLayout";
-import { SinglePageLayout } from "@/components/layouts/SinglePageLayout";
+import { resolveLayout } from "@/lib/theme";
 import { TerminalTemplate } from "@/templates/terminal";
 import { BrutalistTemplate } from "@/templates/brutalist";
 import { PressTemplate } from "@/templates/press";
@@ -131,21 +129,19 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
   };
 
   const layout = resolveLayout(profile.layout);
-  const theme = resolveTheme(profile.theme);
 
-  return (
-    <div className={`theme-${theme}`}>
-      <LayoutRenderer layout={layout} data={data} />
-    </div>
-  );
+  // No more theme wrapper div — all current templates are self-contained
+  // with their own scoped CSS modules. The legacy global `.theme-*`
+  // classes (and the --p-* tokens they defined) have been removed.
+  return <LayoutRenderer layout={layout} data={data} />;
 }
 
 /**
- * Layout dispatch. New layouts: add an import + a case here.
- *
- * Until "multipage" and "grid" are built, they fall back to sidebar so the
- * page still renders. Picking them in the editor still works — the layout
- * just looks like sidebar until those components ship.
+ * Layout dispatch — only the three self-contained templates remain.
+ * Legacy layout values (`sidebar`, `single`, `multipage`, `grid`) are
+ * migrated to `press` server-side in the API normalize step; the resolveLayout
+ * helper provides a safety net here that maps any unknown value to `press`
+ * as well.
  */
 function LayoutRenderer({
   layout,
@@ -155,23 +151,14 @@ function LayoutRenderer({
   data: LayoutData;
 }) {
   switch (layout) {
-    case "sidebar":
-      return <SidebarLayout data={data} />;
-    case "single":
-      return <SinglePageLayout data={data} />;
     case "terminal":
-      // Self-contained template — its own CSS module, own scope. The wrapper
-      // <div className={`theme-${theme}`}> above doesn't affect it.
+      // CLI portfolio — type commands, get output. Scroll mode for read-all.
       return <TerminalTemplate data={data} />;
     case "brutalist":
-      // Self-contained — neo-brutalism, scoped CSS, own design system.
+      // Neo-brutalism — massive type, hazard yellow, hard shadows.
       return <BrutalistTemplate data={data} />;
     case "press":
-      // Self-contained — editorial newspaper, oxblood-on-cream, kinetic
-      // typography, scoped CSS. No CLI, no widgets — just typography.
+      // Editorial newspaper — oxblood serifs, asymmetric editorial grid.
       return <PressTemplate data={data} />;
-    case "multipage":
-    case "grid":
-      return <SidebarLayout data={data} />;
   }
 }

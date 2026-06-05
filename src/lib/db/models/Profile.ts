@@ -168,8 +168,11 @@ const profileSchema = new Schema<ProfileDoc>(
 
     layout: {
       type: String,
-      enum: ["sidebar", "single", "multipage", "grid"],
-      default: "sidebar",
+      // Only three active templates remain. Legacy values (sidebar, single,
+      // multipage, grid) get migrated to "press" in the API normalize step
+      // before reaching the DB.
+      enum: ["terminal", "brutalist", "press"],
+      default: "press",
     },
 
     socials: {

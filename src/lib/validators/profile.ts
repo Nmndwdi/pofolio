@@ -42,14 +42,13 @@ export const themeIdSchema = z.enum([
 export type ThemeId = z.infer<typeof themeIdSchema>;
 
 export const layoutIdSchema = z.enum([
-  "sidebar",   // fixed left rail with nav, content right — default
-  "single",    // long single column, no nav
-  "multipage", // top nav, separate routes per section
-  "grid",      // visual-first, projects dominate
-  // ─── Designer templates (each fully self-contained under src/templates/) ──
+  // Three fully self-contained templates, each under src/templates/.
+  // Legacy values (sidebar, single, multipage, grid) were retired in the
+  // template-architecture migration; the API normalize step coerces any
+  // legacy value to "press" before save.
   "terminal",  // interactive CLI portfolio — type commands, get output
   "brutalist", // neo-brutalism — massive type, hard shadows, hazard yellow
-  "press",     // editorial newspaper — serif masthead, oxblood-on-cream, kinetic type
+  "press",     // editorial newspaper — serif masthead, oxblood-on-cream
 ]);
 export type LayoutId = z.infer<typeof layoutIdSchema>;
 
@@ -81,7 +80,7 @@ export const ProfileSchema = z.object({
   // Cloudinary public_id, not a URL — same reasoning as in section.ts
   avatarCloudinaryId: z.string().max(200).optional(),
   theme: themeIdSchema.default("mono"),
-  layout: layoutIdSchema.default("sidebar"),
+  layout: layoutIdSchema.default("press"),
   socials: SocialsSchema.default({}),
   sections: z.array(SectionSchema).max(20).default([]),
   // Future: per-section visibility is on the section itself; whole-portfolio

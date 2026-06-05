@@ -39,21 +39,11 @@ const config: Config = {
         "paper-card": "#f3eddf",
         ink: "#1a1f2e",
         "ink-accent": "#a4361f",
-
-        // Portfolio theme tokens — driven by CSS variables set per
-        // .theme-mono / .theme-paper / .theme-terminal / .theme-glass.
-        // Components reference these as `bg-p-bg`, `text-p-fg`, etc.
-        "p-bg": "hsl(var(--p-bg))",
-        "p-fg": "hsl(var(--p-fg))",
-        "p-fg-muted": "hsl(var(--p-fg-muted))",
-        "p-fg-subtle": "hsl(var(--p-fg-subtle))",
-        "p-surface": "hsl(var(--p-surface))",
-        "p-surface-2": "hsl(var(--p-surface-2))",
-        "p-border": "hsl(var(--p-border))",
-        "p-accent": "hsl(var(--p-accent))",
-        "p-accent-fg": "hsl(var(--p-accent-fg))",
-        "p-positive": "hsl(var(--p-positive))",
-        "p-negative": "hsl(var(--p-negative))",
+        // (Legacy portfolio theme tokens — `p-bg`, `p-fg`, `p-surface`, etc.
+        // — were removed in the template-architecture migration. The three
+        // active templates are fully self-contained and don't use Tailwind
+        // for their styling; they have scoped CSS modules with their own
+        // design tokens.)
       },
       borderRadius: {
         lg: "var(--radius)",

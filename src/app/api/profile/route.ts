@@ -44,7 +44,17 @@ export async function GET() {
     files: profile.files ?? [],
     projects: profile.projects ?? [],
     theme: profile.theme ?? "mono",
-    layout: profile.layout ?? "sidebar",
+    // Coerce any legacy layout value (sidebar/single/multipage/grid) to
+    // press so the editor form's RHF resolver (zod enum) doesn't reject it
+    // when the user loads their profile. Stored value stays legacy in Mongo
+    // until they save — at which point the PATCH normalize step persists
+    // the new value.
+    layout:
+      profile.layout === "terminal" ||
+      profile.layout === "brutalist" ||
+      profile.layout === "press"
+        ? profile.layout
+        : "press",
   });
 }
 

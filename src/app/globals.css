@@ -56,307 +56,152 @@
   }
 }
 
+
 /*
- * Portfolio theme tokens.
+ * Portfolio templates are fully self-contained — each lives under
+ * src/templates/<name>/ with its own scoped CSS module, design tokens,
+ * fonts, and print styles. No global theme tokens here anymore.
  *
- * Public portfolio pages set one of `.theme-mono`, `.theme-paper`,
- * `.theme-terminal`, `.theme-glass` on a wrapper element. Each defines the
- * `--p-*` variables that portfolio components consume.
- *
- * Why a separate namespace from the dashboard's --foreground/--background
- * tokens: the public portfolio must look distinct from the editor, and a
- * tweak to one shouldn't shift the other. Layouts/sections use `text-p-fg`,
- * `bg-p-surface`, etc. (defined in tailwind.config.ts).
+ * Removed in cleanup:
+ *   - .theme-mono / .theme-paper / .theme-terminal / .theme-glass blocks
+ *   - --p-* token system (consumed by deleted src/components/portfolio/)
+ *   - .p-page-bg / .p-card-surface / .paper-bg utility classes
+ *   - Generic @media print rules (each template handles its own print)
  */
-@layer base {
-  /* ─── Mono — clean white, sharp grotesk, black accents (default) ────── */
-  .theme-mono {
-    --p-bg: 0 0% 100%;
-    --p-fg: 0 0% 4%;
-    --p-fg-muted: 0 0% 40%;
-    --p-fg-subtle: 0 0% 60%;
-    --p-surface: 0 0% 98%;
-    --p-surface-2: 0 0% 95%;
-    --p-border: 0 0% 90%;
-    --p-accent: 0 0% 4%;
-    --p-accent-fg: 0 0% 100%;
-    --p-positive: 142 70% 35%;
-    --p-negative: 0 70% 50%;
-    --p-font-display: var(--font-sans);
-    --p-font-body: var(--font-sans);
-    --p-font-mono: var(--font-mono);
-    /* Elevation tokens. Light themes use soft drop shadows for depth. */
-    --p-shadow-1: 0 1px 2px hsl(0 0% 0% / 0.04),
-      0 4px 16px -4px hsl(0 0% 0% / 0.06);
-    --p-shadow-2: 0 1px 2px hsl(0 0% 0% / 0.06),
-      0 12px 32px -8px hsl(0 0% 0% / 0.12);
-    --p-card-gradient: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 97%));
-    --p-page-gradient: radial-gradient(
-      ellipse 90% 40% at 50% 0%,
-      hsl(0 0% 96%),
-      transparent 70%
-    );
-  }
 
-  /* ─── Paper — warm cream, serif display, ink red accent ────── */
-  .theme-paper {
-    --p-bg: 39 60% 95%;
-    --p-fg: 224 28% 14%;
-    --p-fg-muted: 224 16% 38%;
-    --p-fg-subtle: 224 12% 60%;
-    --p-surface: 36 38% 92%;
-    --p-surface-2: 36 38% 88%;
-    --p-border: 224 16% 14%;
-    --p-accent: 12 67% 38%;
-    --p-accent-fg: 39 60% 95%;
-    --p-positive: 142 60% 30%;
-    --p-negative: 0 65% 45%;
-    --p-font-display: var(--font-serif);
-    --p-font-body: var(--font-sans);
-    --p-font-mono: var(--font-mono);
-    --p-shadow-1: 0 1px 2px hsl(30 30% 20% / 0.06),
-      0 6px 18px -6px hsl(30 30% 20% / 0.10);
-    --p-shadow-2: 0 1px 2px hsl(30 30% 20% / 0.10),
-      0 14px 32px -8px hsl(30 30% 20% / 0.16);
-    --p-card-gradient: linear-gradient(
-      180deg,
-      hsl(36 40% 94%),
-      hsl(36 38% 90%)
-    );
-    --p-page-gradient: radial-gradient(
-      ellipse 90% 40% at 50% 0%,
-      hsl(36 50% 90%),
-      transparent 70%
-    );
-  }
-
-  /* ─── Terminal — dark, mono, green accent ────── */
-  .theme-terminal {
-    --p-bg: 0 0% 7%;
-    --p-fg: 0 0% 92%;
-    --p-fg-muted: 0 0% 60%;
-    --p-fg-subtle: 0 0% 40%;
-    --p-surface: 0 0% 10%;
-    --p-surface-2: 0 0% 14%;
-    --p-border: 0 0% 20%;
-    --p-accent: 142 70% 50%;
-    --p-accent-fg: 0 0% 7%;
-    --p-positive: 142 70% 50%;
-    --p-negative: 0 70% 60%;
-    --p-font-display: var(--font-mono);
-    --p-font-body: var(--font-mono);
-    --p-font-mono: var(--font-mono);
-    /* Dark themes use inset top highlight + subtle drop instead of pure
-       drop shadow — dark-on-dark shadows are invisible. */
-    --p-shadow-1: inset 0 1px 0 hsl(0 0% 100% / 0.04),
-      0 4px 16px -4px hsl(0 0% 0% / 0.4);
-    --p-shadow-2: inset 0 1px 0 hsl(0 0% 100% / 0.07),
-      0 12px 32px -8px hsl(0 0% 0% / 0.6);
-    --p-card-gradient: linear-gradient(180deg, hsl(0 0% 12%), hsl(0 0% 9%));
-    --p-page-gradient: radial-gradient(
-      ellipse 90% 40% at 50% 0%,
-      hsl(0 0% 10%),
-      transparent 70%
-    );
-  }
-
-  /* ─── Glass — dark with translucent panels ────── */
-  .theme-glass {
-    --p-bg: 224 71% 4%;
-    --p-fg: 210 20% 98%;
-    --p-fg-muted: 217 11% 65%;
-    --p-fg-subtle: 217 11% 45%;
-    --p-surface: 224 30% 10%;
-    --p-surface-2: 224 30% 14%;
-    --p-border: 217 11% 65%;
-    --p-accent: 217 91% 60%;
-    --p-accent-fg: 0 0% 100%;
-    --p-positive: 142 70% 50%;
-    --p-negative: 0 70% 60%;
-    --p-font-display: var(--font-sans);
-    --p-font-body: var(--font-sans);
-    --p-font-mono: var(--font-mono);
-    --p-shadow-1: inset 0 1px 0 hsl(0 0% 100% / 0.04),
-      0 4px 16px -4px hsl(0 0% 0% / 0.3);
-    --p-shadow-2: inset 0 1px 0 hsl(0 0% 100% / 0.07),
-      0 12px 32px -8px hsl(0 0% 0% / 0.5);
-    --p-card-gradient: linear-gradient(
-      180deg,
-      hsl(224 30% 12%),
-      hsl(224 30% 9%)
-    );
-    --p-page-gradient: radial-gradient(
-      ellipse 90% 40% at 50% 0%,
-      hsl(224 30% 8%),
-      transparent 70%
-    );
-  }
+/*
+ * Single utility class still in use by the marketing home page
+ * (/src/app/page.tsx). Cream paper backdrop + procedural noise overlay.
+ * Kept inline here rather than as a Tailwind token so the SVG noise data-URI
+ * doesn't have to live inside a tailwind config string.
+ */
+.paper-bg {
+  background-color: #faf6ee;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
 /*
- * Small set of reusable component classes.
- * In step 4 we'll generate proper shadcn-style components for these; for now
- * it's enough to make the auth pages look like a product, not a wireframe.
+ * Dashboard & editor component utilities.
+ *
+ * Three custom classes — `input`, `btn-primary`, `btn-secondary` — are used
+ * heavily across the editor form and dashboard. These are deliberately
+ * generic shadcn-flavor primitives: they consume the dashboard's HSL token
+ * system (--background, --foreground, --border, --input, --ring, --primary,
+ * --muted, etc.) which is unaffected by the portfolio template cleanup.
+ *
+ * Kept hand-written rather than full shadcn components because (a) we only
+ * need three, (b) keeping them in globals.css means the editor can just
+ * say className="input" without importing anything per file.
  */
 @layer components {
-  /* Page background — combines the flat bg color with a subtle radial
-     gradient. Gives the page a "lit from above" sense without going heavy.
-     Use this instead of `bg-p-bg` on the layout root.
-
-     The two-layer approach (gradient image on top of solid background-color)
-     means the gradient is visible against the solid bg even when the
-     gradient is partial / transparent. */
-  .p-page-bg {
-    background-color: hsl(var(--p-bg));
-    background-image: var(--p-page-gradient);
-    background-attachment: fixed;
+  /* ─── Form input ─────────────────────────────────────────────────
+   * Used for text inputs, textareas, and select-likes throughout the
+   * editor form. Bordered, rounded, with a clear focus ring. The
+   * `:disabled` opacity drop is a polish touch — disabled inputs
+   * should READ as disabled, not look identical to enabled. */
+  .input {
+    display: block;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--input));
+    border-radius: calc(var(--radius) - 2px);
+    outline: none;
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+  .input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+  .input:focus,
+  .input:focus-visible {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18);
+  }
+  .input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  /* Textarea + select inherit. Resize is opt-in via Tailwind on the
+   * specific element (e.g. `resize-y` on textareas the user can drag). */
+  textarea.input {
+    line-height: 1.55;
+    padding: 10px 12px;
+    resize: vertical;
+    min-height: 80px;
   }
 
-  /* Premium card surface. Replaces the flat outlined-box pattern that every
-     card-like surface used before. Composes:
-       - A subtle top-to-bottom gradient (gives the surface depth)
-       - A thin border at 55% opacity (less heavy than 100%)
-       - Theme-aware elevation shadow (drop on light, inset highlight on dark)
-
-     Pair with .p-card-hover for hover lift on interactive cards (links). */
-  .p-card {
-    background: var(--p-card-gradient), hsl(var(--p-surface));
-    border: 1px solid hsl(var(--p-border) / 0.55);
-    border-radius: 0.75rem;
-    box-shadow: var(--p-shadow-1);
-    transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 200ms ease;
-  }
-
-  /* Interactive lift on hover — combine with .p-card on links / cards
-     that should signal "clickable". Small motion, bigger shadow, sharper
-     border. The 240ms cubic-bezier(0.16, 1, 0.3, 1) is a refined ease-out
-     that feels "alive" without being slow. */
-  .p-card-hover {
-    cursor: pointer;
-  }
-  .p-card-hover:hover {
-    border-color: hsl(var(--p-border));
-    box-shadow: var(--p-shadow-2);
-    transform: translateY(-2px);
-  }
-
-  /* Section number badge — replaces the lonely "01" text with something
-     that feels architectural. Small mono pill, subtle surface tint, refined
-     spacing. Used in section headers. */
-  .p-section-number {
+  /* ─── Primary button ─────────────────────────────────────────────
+   * High-contrast filled button — used for save, submit, primary CTAs.
+   * Hover darkens via opacity layer; active applies a subtle press. */
+  .btn-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 1.875rem;
-    height: 1.5rem;
-    padding: 0 0.5rem;
-    border-radius: 9999px;
-    background: hsl(var(--p-surface));
-    border: 1px solid hsl(var(--p-border) / 0.6);
-    font-family: var(--p-font-mono);
-    font-size: 0.6875rem;
+    gap: 8px;
+    height: 40px;
+    padding: 0 18px;
+    font-size: 14px;
     font-weight: 500;
-    letter-spacing: 0.05em;
-    color: hsl(var(--p-fg-muted));
-    box-shadow: var(--p-shadow-1);
+    color: hsl(var(--primary-foreground));
+    background: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary));
+    border-radius: calc(var(--radius) - 2px);
+    cursor: pointer;
+    transition: filter 120ms, transform 80ms, box-shadow 120ms;
+    text-decoration: none;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
+  }
+  .btn-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
-  .input {
-    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm
-      ring-offset-background placeholder:text-muted-foreground
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-      disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .btn-primary {
-    @apply inline-flex h-10 items-center justify-center rounded-md
-      bg-primary px-4 py-2 text-sm font-medium text-primary-foreground
-      ring-offset-background transition-colors
-      hover:bg-primary/90
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-      disabled:pointer-events-none disabled:opacity-50;
-  }
-
+  /* ─── Secondary button ───────────────────────────────────────────
+   * Outlined/subtle button — used for "+ Add", cancel, secondary actions.
+   * Lighter visual weight than primary but still clearly tappable. */
   .btn-secondary {
-    @apply inline-flex h-10 items-center justify-center rounded-md
-      border border-input bg-background px-4 py-2 text-sm font-medium
-      ring-offset-background transition-colors
-      hover:bg-accent hover:text-accent-foreground
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-      disabled:pointer-events-none disabled:opacity-50;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) - 2px);
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms, transform 80ms;
+    text-decoration: none;
   }
-
-  /*
-   * Marketing-page-only paper background. Subtle SVG noise overlaid on the
-   * warm color makes it feel like paper rather than flat color. The data URI
-   * is a tiny fractal-noise SVG — ~400 bytes, no extra request.
-   */
-  .paper-bg {
-    background-color: #faf6ee;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  .btn-secondary:hover:not(:disabled) {
+    background: hsl(var(--muted));
+    border-color: hsl(var(--ring) / 0.4);
   }
-}
-
-/* ─── Print styles ──────────────────────────────────────────────────────────
- *
- * Make the public portfolio produce a clean PDF via the browser's native
- * print-to-PDF (triggered by the "Download PDF" button → window.print()).
- *
- * Strategy: strip the interactive chrome (nav rail, mobile nav, buttons,
- * download button itself), force a light background, and avoid breaking
- * cards across page boundaries. The browser's print engine renders the live,
- * already-styled page — no server, no headless Chrome needed.
- */
-@media print {
-  /* Hide anything explicitly marked as screen-only. */
-  [data-print-hide] {
-    display: none !important;
+  .btn-secondary:active:not(:disabled) {
+    transform: translateY(1px);
   }
-
-  /* Hide the sidebar nav rail and mobile nav — not useful on paper. */
-  aside,
-  nav {
-    display: none !important;
+  .btn-secondary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
   }
-
-  /* Force a white background and black text for ink economy + legibility,
-     regardless of the chosen theme. */
-  :root,
-  body {
-    background: #fff !important;
-    color: #111 !important;
-  }
-
-  /* Expand the main content to full width once the sidebar is gone. */
-  main {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  /* Avoid splitting a card / section across pages where possible. */
-  section,
-  li,
-  .rounded-md,
-  .rounded-lg {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  /* Links: show the URL after the text so the PDF is useful offline. */
-  a[href^="http"]::after {
-    content: " (" attr(href) ")";
-    font-size: 0.7em;
-    color: #555;
-    word-break: break-all;
-  }
-
-  /* But don't expand URLs for nav-like / button links (they're hidden anyway)
-     or for image-only links. */
-  a[data-no-print-url]::after {
-    content: "";
+  .btn-secondary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 }
