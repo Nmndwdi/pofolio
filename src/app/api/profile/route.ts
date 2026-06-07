@@ -52,7 +52,8 @@ export async function GET() {
     layout:
       profile.layout === "terminal" ||
       profile.layout === "brutalist" ||
-      profile.layout === "press"
+      profile.layout === "press" ||
+      profile.layout === "bento"
         ? profile.layout
         : "press",
   });

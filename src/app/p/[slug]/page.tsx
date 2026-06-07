@@ -12,6 +12,7 @@ import { resolveLayout } from "@/lib/theme";
 import { TerminalTemplate } from "@/templates/terminal";
 import { BrutalistTemplate } from "@/templates/brutalist";
 import { PressTemplate } from "@/templates/press";
+import { BentoTemplate } from "@/templates/bento";
 import type { LayoutData } from "@/components/layouts/types";
 
 /*
@@ -137,11 +138,10 @@ export default async function PublicProfilePage({ params, searchParams }: Props)
 }
 
 /**
- * Layout dispatch — only the three self-contained templates remain.
- * Legacy layout values (`sidebar`, `single`, `multipage`, `grid`) are
- * migrated to `press` server-side in the API normalize step; the resolveLayout
- * helper provides a safety net here that maps any unknown value to `press`
- * as well.
+ * Layout dispatch — four self-contained templates. Legacy layout values
+ * (`sidebar`, `single`, `multipage`, `grid`) are migrated to `press`
+ * server-side in the API normalize step; the resolveLayout helper provides
+ * a safety net here that maps any unknown value to `press` as well.
  */
 function LayoutRenderer({
   layout,
@@ -160,5 +160,8 @@ function LayoutRenderer({
     case "press":
       // Editorial newspaper — oxblood serifs, asymmetric editorial grid.
       return <PressTemplate data={data} />;
+    case "bento":
+      // Bento OS — vibrant gradient desktop with draggable frosted tiles.
+      return <BentoTemplate data={data} />;
   }
 }

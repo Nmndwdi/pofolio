@@ -633,6 +633,11 @@
 .projectCard {
   display: flex;
   flex-direction: column;
+  /* Cards in a grid row stretch to match the tallest card. We want the
+   * "Open project →" CTA at the bottom of every card regardless of how
+   * much description fills the body — see .projectBody { flex: 1 } and
+   * .projectOpenCta { margin-top: auto }. */
+  height: 100%;
 }
 
 .projectImage {
@@ -645,7 +650,14 @@
 }
 .root[data-palette="ink"] .projectImage { background: #222; }
 
-.projectBody { padding: 20px 24px 24px; }
+.projectBody {
+  padding: 20px 24px 24px;
+  /* Fill remaining vertical space inside the card so the CTA can pin to
+   * the bottom even when the description is short. */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 
 .projectMeta {
   display: flex;
@@ -675,6 +687,12 @@
   font-size: 14px;
   line-height: 1.5;
   color: var(--b-ink);
+  /* Clamp to 3 lines so cards with long descriptions don't tower over
+   * cards with short ones. The full text appears in the detail view. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .projectTech {
@@ -716,6 +734,12 @@
   display: grid;
   gap: 24px;
   grid-template-columns: 1fr;
+  /* Default in CSS grid is align-items: stretch — listed here explicitly
+   * so it's clear the cards expand to equal heights within the row.
+   * Combined with .projectCard { height: 100% } and .projectBody flex: 1,
+   * the CTA pins to the bottom for every card regardless of description
+   * length. */
+  align-items: stretch;
 }
 @media (min-width: 768px) {
   .projectGrid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
@@ -865,6 +889,48 @@
   color: var(--b-muted);
   font-weight: 600;
 }
+
+/* ─── GitHub top-repos list (brutalist) ────────────────────────── */
+.topReposList {
+  display: grid;
+  gap: 10px;
+}
+.topRepoRow {
+  display: grid;
+  gap: 6px;
+  padding: 14px 18px;
+  border: 2px solid var(--b-line);
+  color: var(--b-ink);
+  text-decoration: none;
+  transition: background 100ms ease-out, color 100ms ease-out;
+}
+.topRepoRow:hover {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+.topRepoName {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.topRepoDesc {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.topRepoMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--b-muted);
+}
+.topRepoRow:hover .topRepoMeta { color: var(--b-accent-ink); }
 
 /* ─── Codeforces recent contests list ───────────────────────────── */
 .recentContests {
@@ -1094,6 +1160,52 @@
 .articleItem:hover .articleMeta { color: var(--b-accent-ink); }
 
 /* ─── ML works (Hugging Face) grid ────────────────────────────── */
+/* Totals strip above the items — slammed horizontal row with the HF
+ * username + total counts per kind. Brutalist treatment: 2px borders
+ * everywhere, big display-font numbers, mono-uppercase labels. */
+.hfTotalsStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border: 2px solid var(--b-line);
+  background: var(--b-bg);
+}
+.hfTotalsHandle {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--b-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--b-line);
+}
+.hfTotalsHandle:hover { background: var(--b-accent); }
+.hfTotalsSep { color: var(--b-muted); }
+.hfTotalsItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.hfTotalsNum {
+  font-family: var(--b-font-display), sans-serif;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.hfTotalsLabel {
+  font-family: var(--b-font-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--b-muted);
+}
+
 .hfGrid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1247,6 +1359,240 @@
   max-height: 80vh;
   object-fit: contain;
   background: var(--b-bg);
+}
+
+/* ─── Project card as button (whole card clickable) ──────────── */
+/* The card is now a <button> instead of <article>. We reset the native
+ * button styles and re-apply the brutalist card aesthetic. Hover lifts
+ * the shadow slightly and shows the CTA in hazard yellow.
+ */
+.projectCardButton {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--b-bg);
+  border: 2px solid var(--b-line);
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  /* Brutalist hover: hard offset shadow gets larger. cardHover already
+   * applies a base shadow; we just punch it harder here. */
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.projectCardButton:hover .projectOpenCta {
+  background: var(--b-accent);
+  color: var(--b-accent-ink);
+}
+.projectCardButton:focus-visible {
+  outline: 4px solid var(--b-accent);
+  outline-offset: 2px;
+}
+
+/* CTA pill at the bottom of each project card — communicates "click me" */
+.projectOpenCta {
+  /* Pinned to the bottom of the project body (which is flex: 1 inside
+   * the card). That way the CTA bar aligns across the row even when
+   * project descriptions vary in length. */
+  margin-top: auto;
+  align-self: flex-start;
+  padding: 8px 14px;
+  font-family: var(--b-font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--b-ink);
+  background: transparent;
+  border: 2px solid var(--b-line);
+  transition: background 120ms, color 120ms;
+}
+
+/* ─── Project modal (portal overlay) ───────────────────────── */
+/* The portal mounts a fixed-position backdrop over the whole page. The
+ * modal shell sits centered, with brutalist 2px solid borders and an
+ * 8px offset shadow. Hazard-yellow accent strip at the top edge ties it
+ * back to the rest of the brutalist visual language. */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  /* Above the custom cursor (z-index 9999) — the cursor's
+   * mix-blend-mode: difference would otherwise apply across the modal
+   * making the bone-on-bone shell look weirdly inverted. By stacking
+   * above and also setting isolation:isolate, we guarantee the modal
+   * stays solid. */
+  z-index: 10000;
+  /* Stronger dim — was 0.65, bumped to 0.85 so the bone-on-bone modal
+   * shell pops cleanly. Brutalist aesthetic loves high contrast. */
+  background: rgba(0, 0, 0, 0.85);
+  /* CRITICAL: isolation prevents the custom cursor's
+   * mix-blend-mode: difference (and any future blend modes) from
+   * reaching into the modal shell. */
+  isolation: isolate;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 24px;
+  overflow-y: auto;
+  animation: brutalistModalFadeIn 180ms ease-out;
+}
+@keyframes brutalistModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modalShell {
+  position: relative;
+  max-width: 960px;
+  width: 100%;
+  /* CRITICAL: hardcoded colors, not var(--b-*).
+   *
+   * The modal portals to document.body, OUTSIDE the brutalist .root
+   * scope where --b-bg / --b-ink / --b-accent / --b-line are defined.
+   * Without hardcoding, the shell background was undefined → transparent.
+   * The page color (#fafaf5 bone) is duplicated here so the modal
+   * renders solid.
+   *
+   * Note: this means the ink-palette variant ("dark mode") doesn't apply
+   * to the modal — by design. The modal is always bone-on-black so the
+   * hazard yellow accent reads consistently.
+   */
+  background: #fafaf5;
+  color: #000;
+  border: 2px solid #000;
+  /* Hazard yellow top strip — brand cue */
+  border-top: 8px solid #ffd60a;
+  /* Hard offset shadow, no blur — classic brutalist */
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.8);
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  animation: brutalistModalSlam 260ms cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+@keyframes brutalistModalSlam {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.modalClose {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: #ffd60a;
+  color: #000;
+  border: 2px solid #000;
+  font-family: var(--b-font-mono), "JetBrains Mono", monospace;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 80ms ease-out;
+}
+.modalClose:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 #000; }
+.modalClose:active { transform: translate(0, 0); box-shadow: none; }
+
+.modalContent {
+  padding: 32px 36px 40px;
+  overflow-y: auto;
+}
+@media (max-width: 640px) {
+  .modalContent { padding: 24px; }
+}
+
+.modalHero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  object-fit: cover;
+  border: 2px solid #000;
+  background: #eee;
+  margin-bottom: 24px;
+}
+
+.modalKicker {
+  font-family: var(--b-font-mono), "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6b6b66;
+  margin-bottom: 8px;
+}
+
+.modalTitle {
+  font-family: var(--b-font-display), "Archivo Black", sans-serif;
+  font-weight: 900;
+  font-size: clamp(32px, 5vw, 56px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+  color: #000;
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 64ch;
+  margin-bottom: 24px;
+}
+.modalPara {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #000;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.modalSection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid #000;
+}
+.modalSectionLabel {
+  font-family: var(--b-font-mono), "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #6b6b66;
+  margin: 0 0 12px;
+}
+
+.modalGallery {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .modalGallery { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Inside the modal, .projectTech / .projectTechChip / .projectLinks /
+ * .projectLink / .projectGalleryImg are reused for stack/links/gallery.
+ * Those classes reference --b-* vars, which DON'T resolve at the portal
+ * mount point. We override the visible properties to hardcoded values
+ * so the modal renders correctly. */
+.modalShell .projectTechChip {
+  border-color: #000;
+  color: #000;
+  background: transparent;
+}
+.modalShell .projectLink {
+  color: #000;
+  border-bottom-color: #000;
+}
+.modalShell .projectLink:hover {
+  background: #ffd60a;
+}
+.modalShell .projectGalleryImg {
+  border-color: #000;
+  background: #eee;
 }
 
 /* ─── Project image gallery (additional images below hero) ───── */

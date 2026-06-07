@@ -171,7 +171,7 @@ const profileSchema = new Schema<ProfileDoc>(
       // Only three active templates remain. Legacy values (sidebar, single,
       // multipage, grid) get migrated to "press" in the API normalize step
       // before reaching the DB.
-      enum: ["terminal", "brutalist", "press"],
+      enum: ["terminal", "brutalist", "press", "bento"],
       default: "press",
     },
 

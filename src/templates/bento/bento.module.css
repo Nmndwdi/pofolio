@@ -1,0 +1,1287 @@
+/*
+ * Bento OS — vibrant gradient desktop with windowed apps.
+ *
+ * Concept: the portfolio is rendered as a desktop OS. The home screen shows
+ * only the user's identity (name, headline, avatar) plus a persistent dock.
+ * Each dock icon opens an "application" — a modal window with that section's
+ * content (projects, github stats, skills, etc.). One app at a time;
+ * clicking another app swaps which window is open.
+ *
+ * Faithful to the v4 prototype's color tokens and frosted-glass aesthetic
+ * but reorganized around the windowed-app pattern instead of a wall of tiles.
+ *
+ * All selectors prefixed via CSS Module scoping — no global leakage.
+ */
+
+.root {
+  --bg-1: #ff8b73;
+  --bg-2: #b366ff;
+  --bg-3: #4d7fff;
+  --bg-4: #2dd4bf;
+  --panel: rgba(20, 20, 24, 0.55);
+  --panel-2: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.12);
+  --fg: #f5f5f3;
+  --fg-2: rgba(245, 245, 243, 0.7);
+  --fg-3: rgba(245, 245, 243, 0.5);
+  --accent: #ffd86b;
+
+  --sans: var(--font-bento-sans, "Geist"), system-ui, -apple-system, sans-serif;
+  --serif: var(--font-bento-serif, "Instrument Serif"), Georgia, serif;
+  --mono: var(--font-bento-mono, "JetBrains Mono"), ui-monospace, monospace;
+
+  font-family: var(--sans);
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+
+  background:
+    radial-gradient(ellipse at 15% 5%, var(--bg-1) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 8%, var(--bg-2) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 90%, var(--bg-3) 0%, transparent 55%),
+    radial-gradient(ellipse at 10% 80%, var(--bg-4) 0%, transparent 50%),
+    #1a0d2e;
+  background-attachment: fixed;
+  position: relative;
+}
+
+/* Procedural noise overlay — adds depth, prevents banding on smooth color
+ * transitions. mix-blend-mode: overlay keeps it subtle. */
+.root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+}
+.root ::selection { background: var(--accent); color: #1a0d2e; }
+
+/* ===== MENUBAR ===== */
+.menubar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 36px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+}
+.menubarL, .menubarR { display: flex; align-items: center; gap: 18px; }
+.menuItem {
+  cursor: pointer;
+  opacity: 0.85;
+  color: inherit;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+}
+.menuItem:hover { opacity: 1; }
+.menuItem.appName { font-weight: 600; }
+.menuItem.active { color: var(--accent); opacity: 1; }
+.clock { font-variant-numeric: tabular-nums; }
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.indicatorDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* ===== DESKTOP (home state) ===== */
+.desktop {
+  padding: 60px 24px 140px;
+  max-width: 1320px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+
+/* ===== HERO CARD (the only persistent thing on desktop) ===== */
+.hero {
+  width: 100%;
+  max-width: 560px;
+  background: rgba(20, 20, 24, 0.45);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 40px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 30px 80px -24px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  animation: bentoHeroFadeIn 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes bentoHeroFadeIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.heroAvatarWrap {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  margin: 0 auto 24px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, var(--accent), var(--bg-1));
+  overflow: hidden;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+}
+.heroAvatarWrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.heroName {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+}
+.heroName .italic {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+}
+.heroHeadline {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(17px, 2vw, 22px);
+  line-height: 1.4;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 36ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+.heroMeta {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.heroMetaDivider {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.heroAvailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+.heroAvailable::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: bentoBlink 1.8s ease-in-out infinite;
+}
+@keyframes bentoBlink { 50% { opacity: 0.3; } }
+
+/* Hint below hero — invites first-time interaction */
+.openHint {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  text-align: center;
+  animation: bentoHintPulse 2.4s ease-in-out infinite;
+}
+@keyframes bentoHintPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ===== APP WINDOW ===== */
+/* Full-screen backdrop that holds an open app. Click backdrop to close. */
+.windowBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px 140px;
+  /* Darken the wallpaper noticeably so the open window has clear visual
+   * hierarchy. Frosted blur is preserved for the macOS-y depth. */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.5);
+  animation: bentoBackdropIn 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes bentoBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The actual window. Big rounded panel, frosted glass, traffic lights. */
+.window {
+  width: 100%;
+  max-width: 980px;
+  max-height: calc(100vh - 200px);
+  /* Bumped from 0.78 to 0.95 — keeps the subtle frosted-glass feel
+   * (saturate(180%) still lets a hint of wallpaper color through the
+   * blur) but makes content fully readable without the wallpaper
+   * bleeding through. Authentic to recent macOS aesthetic. */
+  background: rgba(20, 20, 24, 0.95);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 40px 100px -20px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: bentoWindowOpen 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes bentoWindowOpen {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Title bar — traffic lights left, title centered, empty space right */
+.titleBar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
+}
+.trafficLights {
+  display: flex;
+  gap: 8px;
+}
+.trafficLight {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 0.5px solid rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: filter 120ms;
+}
+.trafficLight:hover { filter: brightness(1.15); }
+.trafficLight.close { background: #ff5f57; }
+.trafficLight.minimize { background: #febc2e; }
+.trafficLight.maximize { background: #28c840; }
+/* Show symbol on hover, like real macOS */
+.trafficLights:hover .trafficLight.close::before { content: "×"; }
+.trafficLights:hover .trafficLight.minimize::before { content: "−"; }
+.trafficLights:hover .trafficLight.maximize::before { content: "+"; }
+.trafficLight {
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1;
+}
+.titleBarTitle {
+  flex: 1;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  /* Offset to compensate for traffic lights on the left so the title
+   * actually sits visually centered. */
+  margin-right: 56px;
+  user-select: none;
+}
+
+/* Window body — scrolls if content overflows */
+.windowBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px 32px;
+  /* Custom scrollbar — thinner, accent-colored, matches the OS aesthetic */
+}
+.windowBody::-webkit-scrollbar {
+  width: 8px;
+}
+.windowBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+.windowBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Window content primitives — reused across all apps */
+.appKicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 6px;
+}
+.appKicker .accent { color: var(--accent); }
+.appTitle {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(28px, 3.5vw, 40px);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0 0 24px;
+}
+.appTitle .italic {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+}
+.appSub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--fg-2);
+  margin: -16px 0 28px;
+  max-width: 60ch;
+}
+
+/* Stat block for stat-heavy apps (GitHub / LeetCode / Codeforces) */
+.statBig {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.statBigNum {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(56px, 8vw, 92px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+.statBigLabel {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 640px) {
+  .statRow { grid-template-columns: repeat(2, 1fr); }
+}
+.statCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.statCellNum {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1;
+}
+.statCellLabel {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Heatmap (GitHub contributions, LeetCode submissions, Codeforces, …) */
+.heatmapWrap {
+  margin-top: 28px;
+}
+.heatmapHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.heatmapLabel {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.heatmapMeta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  margin-top: 2px;
+}
+.heatmapLegend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.heatmapLegendCell {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+/* Year tabs — small frosted pills, accent on active */
+.heatmapYears {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.heatmapYearBtn {
+  appearance: none;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+.heatmapYearBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+}
+.heatmapYearBtn[data-active="true"] {
+  background: rgba(255, 216, 107, 0.18);
+  border-color: rgba(255, 216, 107, 0.55);
+  color: var(--accent);
+}
+/* Calendar — month labels in row 1, then 7 rows of 53ish week columns. */
+.heatmapCalendar {
+  display: grid;
+  /* gridTemplateColumns is set inline so the column count matches the
+   * computed totalWeeks for the selected year. */
+  grid-template-rows: 14px repeat(7, 1fr);
+  gap: 3px;
+  /* The day rows need to fit within a comfortable height for the window. */
+  font-family: var(--mono);
+}
+.heatmapMonth {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.heatmapCell, .heatmapCellBlank {
+  aspect-ratio: 1;
+  border-radius: 2px;
+}
+.heatmapCellBlank {
+  background: transparent;
+}
+.heatmapCell {
+  background: rgba(255, 255, 255, 0.07);
+}
+.heatmapCell.l0 { background: rgba(255, 255, 255, 0.07); }
+.heatmapCell.l1 { background: rgba(45, 212, 191, 0.3); }
+.heatmapCell.l2 { background: rgba(45, 212, 191, 0.5); }
+.heatmapCell.l3 { background: rgba(45, 212, 191, 0.75); }
+.heatmapCell.l4 { background: rgba(45, 212, 191, 0.95); }
+.heatmapLegendCell.l0 { background: rgba(255, 255, 255, 0.07); }
+.heatmapLegendCell.l1 { background: rgba(45, 212, 191, 0.3); }
+.heatmapLegendCell.l2 { background: rgba(45, 212, 191, 0.5); }
+.heatmapLegendCell.l3 { background: rgba(45, 212, 191, 0.75); }
+.heatmapLegendCell.l4 { background: rgba(45, 212, 191, 0.95); }
+.heatmapEmpty {
+  padding: 16px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+/* GitHub language breakdown — horizontal bars labelled by language name */
+.langList {
+  display: grid;
+  gap: 8px;
+}
+.langRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.langLabel {
+  width: 110px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.langTrack {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.langFill {
+  height: 100%;
+  border-radius: 3px;
+}
+.langPct {
+  width: 56px;
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+/* Ratio bars (LeetCode) */
+.lcBars {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+.lcBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lcBarLabel {
+  width: 70px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.lcBarTrack {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.lcBarFill { height: 100%; }
+.lcBarFill.easy { background: #5be0b2; }
+.lcBarFill.medium { background: #ffd86b; }
+.lcBarFill.hard { background: #ff5e9c; }
+.lcBarCount {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  min-width: 60px;
+  text-align: right;
+}
+
+/* Sparkline (Codeforces) */
+.cfSparkline {
+  width: 100%;
+  height: 120px;
+  margin-top: 24px;
+}
+
+/* ===== PROJECTS APP ===== */
+.projectsList {
+  display: grid;
+  gap: 16px;
+}
+
+/* Featured project — image at top with overlay'd kicker + title, body
+ * content (description, tech, actions) sits BELOW the image so prose has
+ * proper room to breathe. The image is intentionally not the whole card. */
+.projectsFeatured {
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+/* The featured card is a <button> (clicking opens detail). Reset native
+ * button styles so it renders like a regular card. */
+.projectsFeaturedButton {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  padding: 0;
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), background 200ms;
+}
+.projectsFeaturedButton:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.07);
+}
+.projectsFeatured > img {
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  display: block;
+}
+.projectsFeaturedOverlay { display: none; }
+.projectsFeaturedContent {
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.projectsFeaturedKicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.projectsFeaturedTitle {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(26px, 3.5vw, 38px);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0;
+  color: var(--fg);
+  font-style: normal;
+}
+/* Featured card "lede" — single-paragraph preview (no full description on
+ * the list view; full text lives in the detail view). 3-line clamp keeps
+ * cards visually balanced. */
+.projectsFeaturedLede {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 64ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.projectsFeaturedMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.projectsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .projectsGrid { grid-template-columns: 1fr; }
+}
+/* Project card — now a <button>, full reset of native styles */
+.projectCard {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), background 200ms;
+}
+.projectCard:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.07);
+}
+.projectCardArt {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-size: cover;
+  background-position: center;
+}
+.projectCardArtBlob {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: radial-gradient(circle, var(--bg-1), var(--bg-2));
+}
+.projectCardBody {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.projectCardKicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.projectCardTitle {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0;
+  font-style: normal;
+}
+.projectCardDesc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.projectCardMeta {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ===== PROJECT DETAIL view (inside Projects.app) ===== */
+.projectDetailBack {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--fg-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-bottom: 18px;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+.projectDetailBack:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.projectDetailHero {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 8px;
+}
+.projectDetailHero img {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: cover;
+  display: block;
+}
+.projectDetailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 18px 0 24px;
+}
+.projectDetailPara {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--fg);
+  margin: 0;
+  max-width: 64ch;
+  white-space: pre-wrap;
+}
+.projectDetailSection {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.projectDetailSectionLabel {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 10px;
+}
+.projectDetailTech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.projectDetailLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.projectDetailLinks a.pill {
+  padding: 7px 16px;
+  font-size: 11px;
+}
+.projectDetailGallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.projectDetailGallery img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ===== ABOUT APP ===== */
+.aboutBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+.aboutPara {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--fg);
+  margin: 0;
+  max-width: 64ch;
+  white-space: pre-wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+}
+.pillAccent {
+  background: rgba(255, 216, 107, 0.15);
+  border-color: rgba(255, 216, 107, 0.3);
+  color: var(--accent);
+}
+
+/* ===== SKILLS APP ===== */
+.skillGroup {
+  margin-bottom: 28px;
+}
+.skillGroupHead {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.skillGroupName {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 20px;
+  margin: 0 0 6px;
+  font-style: normal;
+}
+.skillGroupDesc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--fg-2);
+  margin: 0 0 14px;
+  max-width: 56ch;
+}
+.skillChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ===== CAREER APP (experience + education) ===== */
+.careerSection {
+  margin-bottom: 32px;
+}
+.careerSection:last-child { margin-bottom: 0; }
+.careerSectionHead {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.careerTimeline {
+  display: grid;
+  gap: 18px;
+  border-left: 2px solid rgba(255, 216, 107, 0.3);
+  padding-left: 18px;
+}
+.careerItem {}
+.careerItemDates {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.careerItemRole {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 16px;
+  margin: 2px 0 0;
+}
+.careerItemCompany {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--fg-2);
+  margin-top: 2px;
+}
+.careerItemSummary {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--fg-2);
+  line-height: 1.5;
+  margin: 8px 0 0;
+  max-width: 60ch;
+  white-space: pre-wrap;
+}
+.careerItemSkills {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ===== WRITING / ML / LINKS apps — uniform list rows ===== */
+.rowList {
+  display: grid;
+  gap: 0;
+}
+.rowItem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+  transition: padding-left 180ms;
+}
+.rowItem:first-child { border-top: 0; }
+.rowItem:hover { padding-left: 8px; }
+.rowItemTitle {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0;
+  font-style: normal;
+}
+.rowItemMeta {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-top: 4px;
+}
+.rowItemAside {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ===== FILES APP ===== */
+.fileBlock {
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+}
+.fileBlock:last-child { margin-bottom: 0; }
+.fileBlockHead {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fileBlockKind {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 216, 107, 0.18);
+  color: var(--accent);
+}
+.fileBlockName {
+  flex: 1;
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 14px;
+}
+.fileBlockOpen {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+}
+.fileBlockOpen:hover { text-decoration: underline; }
+.fileBlockDesc {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--fg-2);
+  border-bottom: 1px solid var(--line);
+  white-space: pre-wrap;
+}
+.fileBlockPdf {
+  display: block;
+  width: 100%;
+  height: 50vh;
+  border: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+.fileBlockImage {
+  display: block;
+  width: 100%;
+  max-height: 50vh;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== DOCK ===== */
+.dock {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(20, 20, 24, 0.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 22px;
+  z-index: 70;
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.5);
+  max-width: calc(100vw - 32px);
+  /* No overflow:hidden / overflow-x:auto here — those would clip the
+   * tooltips that float ABOVE the dock on hover. Tooltips are positioned
+   * absolutely outside the dock's bounding rect, so any clipping kills them.
+   * If the dock content overflows horizontally on small viewports we let
+   * items wrap (see mobile media query below) — cheaper than building a
+   * scroll container that doesn't clip vertically. */
+  overflow: visible;
+  flex-wrap: nowrap;
+}
+
+.dockApp {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  cursor: pointer;
+  transition: transform 250ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  font-family: var(--sans);
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  flex-shrink: 0;
+  /* Each icon should be a button visually; reset native button styles. */
+  background-clip: padding-box;
+}
+.dockApp:hover { transform: translateY(-12px) scale(1.18); }
+.dockApp.active {
+  transform: translateY(-6px) scale(1.1);
+  box-shadow: 0 8px 24px -4px rgba(255, 216, 107, 0.5);
+}
+.dockApp.active::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* Colored app icons — each section has its own accent gradient */
+.dockApp[data-color="about"] { background: linear-gradient(135deg, #ffd86b, #b366ff); color: #1a0d2e; }
+.dockApp[data-color="projects"] { background: linear-gradient(135deg, #ff8b73, #ff5e9c); }
+.dockApp[data-color="github"] { background: linear-gradient(135deg, #2dd4bf, #4d7fff); }
+.dockApp[data-color="leetcode"] { background: linear-gradient(135deg, #ffd86b, #ff8b73); color: #1a0d2e; }
+.dockApp[data-color="codeforces"] { background: linear-gradient(135deg, #4d7fff, #b366ff); }
+.dockApp[data-color="skills"] { background: linear-gradient(135deg, #5be0b2, #2dd4bf); color: #1a0d2e; }
+.dockApp[data-color="career"] { background: linear-gradient(135deg, #b366ff, #6ea3ff); }
+.dockApp[data-color="writing"] { background: linear-gradient(135deg, #1a1a1c, #4a4a4c); }
+.dockApp[data-color="ml"] { background: linear-gradient(135deg, #ffd21e, #ff9d00); color: #1a0d2e; }
+.dockApp[data-color="links"] { background: linear-gradient(135deg, #ff5e9c, #b366ff); }
+.dockApp[data-color="files"] { background: linear-gradient(135deg, #6ea3ff, #2dd4bf); }
+
+/* Social shortcut icons — different gradients to differentiate them from
+ * app icons visually (sections vs external links). */
+.dockApp[data-color="linkedin"] { background: linear-gradient(135deg, #0a66c2, #0a4d99); }
+.dockApp[data-color="twitter"] { background: linear-gradient(135deg, #1d9bf0, #0e6db8); }
+.dockApp[data-color="ghProfile"] { background: linear-gradient(135deg, #1a1a1c, #444); }
+.dockApp[data-color="website"] { background: linear-gradient(135deg, #2dd4bf, #5be0b2); color: #1a0d2e; }
+.dockApp[data-color="email"] { background: linear-gradient(135deg, #ed5a5a, #c43838); }
+.dockApp[data-color="resume"] { background: linear-gradient(135deg, #ffd86b, #ffb133); color: #1a0d2e; }
+.dockApp[data-color="custom"] { background: linear-gradient(135deg, #b366ff, #6ea3ff); }
+
+.dockApp .tt {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  /* Above the dock and above anything else in the stack. The dock sits
+   * at z-index 70; tooltips above need to clear that. */
+  z-index: 80;
+  transition: opacity 0.15s;
+}
+.dockApp:hover .tt { opacity: 1; }
+.dockSep {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+  align-self: center;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .dock {
+    padding: 6px;
+    gap: 4px;
+    bottom: 12px;
+    /* Mobile: if more icons than fit on one row, wrap. Tooltips are
+     * hidden here anyway so vertical overflow concerns from the desktop
+     * fix don't apply. */
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .dockApp { width: 44px; height: 44px; font-size: 18px; border-radius: 11px; }
+  .dockApp .tt { display: none; }
+  .dockSep { height: 28px; }
+}
+
+/* ===== Print fallback ===== */
+@media print {
+  .root, .root * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .root { background: #fff !important; color: #111 !important; }
+  .menubar, .dock, .openHint, .root::before, .windowBackdrop { display: none !important; }
+  .hero { background: #fff !important; border: 1px solid #ddd !important; color: #111 !important; box-shadow: none !important; }
+  .heroHeadline { color: #444 !important; }
+}

@@ -875,6 +875,237 @@
 .projectCardDetailLink:hover { color: var(--press-ochre); }
 
 /* ╔═══════════════════════════════════════════════════════════╗
+   ║  PROJECT DETAIL MODAL — overlay editorial spread          ║
+   ╚═══════════════════════════════════════════════════════════╝ */
+/* Full-screen overlay. Cream-on-cream like a magazine pulled-out detail
+ * page. Backdrop is darker so the cream modal pops; clicking outside
+ * dismisses. */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  /* Darker dim — bumped from 0.55 to 0.78 so the page behind doesn't
+   * compete with the modal content. */
+  background: rgba(20, 12, 6, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  /* CRITICAL: isolation: isolate prevents the page's .grain element
+   * (which has mix-blend-mode: multiply) from blending into the modal.
+   * Without this, the grain overlay multiplies its pixels into the modal
+   * shell, making the cream background look darker and "transparent"
+   * because the page colors behind shine through the blend. */
+  isolation: isolate;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  /* Smooth fade on mount. The portal mounts after a state change, so this
+   * animation runs once per open. */
+  animation: pressModalFadeIn 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes pressModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modalShell {
+  position: relative;
+  max-width: 920px;
+  width: 100%;
+  /* CRITICAL: hardcoded color, not var(--press-cream).
+   *
+   * The modal portals to document.body, which is OUTSIDE the Press
+   * template's .root wrapper. CSS custom properties (--press-cream,
+   * --press-ink, etc.) are scoped to .root, so they're undefined at the
+   * portal mount point — leaving the background to fall back to
+   * transparent. That's why the modal looked see-through.
+   *
+   * We hardcode the actual hex values here for everything that needs to
+   * be solid. Variables that don't matter for solidness (rule colors,
+   * muted text) can stay as var() — they degrade to text-inherited
+   * defaults which is fine.
+   */
+  background: #f4efe6;
+  color: #1f1714;
+  border-top: 4px solid #5b1a1a;
+  border-bottom: 1px solid rgba(91, 26, 26, 0.3);
+  box-shadow: 0 30px 80px -10px rgba(20, 12, 6, 0.5);
+  animation: pressModalRise 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+@keyframes pressModalRise {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+
+.modalClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  /* Hardcoded — see .modalShell note about portal scope. */
+  background: #f4efe6;
+  border: 1px solid rgba(91, 26, 26, 0.3);
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 16px;
+  color: #1f1714;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.modalClose:hover {
+  background: #5b1a1a;
+  color: #f4efe6;
+}
+
+.modalContent {
+  padding: 36px 48px 48px;
+  overflow-y: auto;
+}
+@media (max-width: 640px) {
+  .modalContent { padding: 24px 24px 32px; }
+}
+
+.modalHero {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: cover;
+  /* Match the editorial silhouette — the hero image is full-bleed inside
+   * the modal padding. */
+  margin: 0 -48px;
+  width: calc(100% + 96px);
+  border-top: 1px solid rgba(91, 26, 26, 0.3);
+  border-bottom: 1px solid rgba(91, 26, 26, 0.3);
+}
+@media (max-width: 640px) {
+  .modalHero {
+    margin: 0 -24px;
+    width: calc(100% + 48px);
+  }
+}
+
+.modalTitle {
+  /* All modal classes use hardcoded fonts + colors because the portal
+   * mounts at document.body, outside the .root scope where --press-*
+   * CSS variables are defined. Fonts fall back to next/font globals if
+   * present, otherwise the standard serif stack. */
+  font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(36px, 5vw, 60px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #5b1a1a;
+  margin: 8px 0 16px;
+  font-style: italic;
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+  max-width: 64ch;
+}
+.modalPara {
+  font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #1f1714;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.modalSection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(91, 26, 26, 0.3);
+}
+.modalSectionLabel {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(31, 23, 20, 0.55);
+  margin-bottom: 12px;
+}
+.modalTech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.modalTechChip {
+  font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  color: #5b1a1a;
+  line-height: 1.2;
+}
+
+.modalLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.modalLink {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #5b1a1a;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  transition: color 150ms;
+}
+.modalLink:hover { color: #c77b3e; }
+
+/* Shared classes (.kicker / .kickerNum) used inside the modal also rely
+ * on --press-* vars that don't reach the portal. Override here so the
+ * "Project · Year · Role" line above the modal title renders correctly. */
+.modalShell .kicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  color: #c77b3e;
+}
+.modalShell .kickerNum {
+  font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+  color: #5b1a1a;
+}
+/* FeaturedGallery shared classes also use --press-* vars; override
+ * inside the modal scope so the gallery renders with proper colors. */
+.modalShell .featuredGalleryLabel {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  color: #5b1a1a;
+}
+.modalShell .featuredGalleryBtn {
+  background: #f4efe6;
+  color: #5b1a1a;
+  border-color: rgba(91, 26, 26, 0.3);
+  font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+}
+.modalShell .featuredGalleryBtn:hover {
+  background: #5b1a1a;
+  color: #f4efe6;
+}
+.modalShell .featuredGalleryImage {
+  background: #ece5d6;
+  box-shadow: inset 0 0 0 1px rgba(91, 26, 26, 0.3);
+}
+.modalShell .featuredGalleryCaption {
+  font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+  color: rgba(31, 23, 20, 0.55);
+}
+
+/* ╔═══════════════════════════════════════════════════════════╗
    ║  SPREAD 7 — BY THE NUMBERS (GitHub | LeetCode, paired)     ║
    ╚═══════════════════════════════════════════════════════════╝ */
 
@@ -925,6 +1156,15 @@
   text-underline-offset: 3px;
 }
 .platformHandle:hover { color: var(--press-ochre); }
+/* Optional byline shown under the platform handle — used for LC realName
+ * etc. Italic serif so it reads like an article byline. */
+.platformByline {
+  margin-top: 2px;
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--press-muted);
+}
 
 .statTiles {
   display: grid;
@@ -953,6 +1193,104 @@
   color: var(--press-muted);
 }
 
+/* Top repos list (GitHub block) — editorial bordered rows. Serif name +
+ * italic-serif description + mono-uppercase meta line for language/stars.
+ * Underline-on-hover affordance matches the rest of Press's link style. */
+.topReposList {
+  display: grid;
+  gap: 0;
+}
+.topReposLabel {
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+  margin-bottom: 4px;
+}
+.topRepoRow {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--press-rule);
+  color: var(--press-ink);
+  text-decoration: none;
+  transition: background 120ms;
+}
+.topRepoRow:last-child { border-bottom: 1px solid var(--press-rule); }
+.topRepoRow:hover { background: rgba(0, 0, 0, 0.03); }
+.topRepoNameRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.topRepoName {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 20px;
+  color: var(--press-oxblood);
+  line-height: 1.1;
+}
+.topRepoDesc {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--press-ink);
+  margin: 0;
+}
+.topRepoMeta {
+  display: inline-flex;
+  gap: 12px;
+  font-family: var(--press-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+}
+
+/* Language breakdown chips — Press treatment of GitHub's
+ * languageBreakdown. Small caps for the label, serif-italic chip names
+ * with a mono superscript count. Sits below the top-repos list. */
+.langStrip { display: grid; gap: 8px; margin-top: 4px; }
+.langChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.langChipPress {
+  font-family: var(--press-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--press-oxblood);
+  line-height: 1.2;
+}
+.langChipCount {
+  font-family: var(--press-mono);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--press-muted);
+}
+
+/* HF section subtitle — small editorial line below the section title
+ * showing the user's HuggingFace totals (X models · Y datasets · Z spaces).
+ * Mono-uppercase like a byline. */
+.hfTotals {
+  margin-top: 6px;
+  font-family: var(--press-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--press-muted);
+}
+
 /* Heatmap (calendar). Slightly compact version of the same calendar logic
  * used in terminal/brutalist. */
 .heatmap { display: grid; gap: 12px; }
@@ -963,6 +1301,15 @@
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--press-muted);
+}
+/* Summary line — total contributions + active days. Sits below the
+ * heatmap label. Mono so it reads like a byline. */
+.heatmapSummary {
+  font-family: var(--press-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--press-muted);
+  font-feature-settings: "tnum" 1;
 }
 .heatmapYears {
   display: flex;

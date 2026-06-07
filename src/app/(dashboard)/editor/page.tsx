@@ -104,7 +104,17 @@ export default async function EditorPage() {
           profile.theme === "glass"
             ? profile.theme
             : "mono",
-        layout: profile.layout,
+        // Coerce any legacy/unknown layout value to "press" so the zod
+        // enum on the form doesn't reject (matches the GET endpoint's
+        // behavior). The four valid layouts are the only ones the
+        // editor's picker offers.
+        layout:
+          profile.layout === "press" ||
+          profile.layout === "terminal" ||
+          profile.layout === "brutalist" ||
+          profile.layout === "bento"
+            ? profile.layout
+            : "press",
       }}
     />
   );

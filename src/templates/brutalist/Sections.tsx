@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { LayoutData } from "@/components/layouts/types";
 import { deriveUrl } from "@/lib/cloudinary-url";
 import styles from "./brutalist.module.css";
@@ -169,26 +170,54 @@ export function SkillsSection({ data }: { data: LayoutData }) {
 /* ─── Projects ─────────────────────────────────────────────────── */
 
 export function ProjectsSection({ data }: { data: LayoutData }) {
+  // Click → modal. Section always renders the grid; the selected project
+  // (if any) renders alongside as a portal modal. This replaced an
+  // earlier pattern where the grid would swap to a full detail view in
+  // place — that felt jarring because other sections (skills, career)
+  // stayed put while the projects block shape-shifted. A modal keeps the
+  // surrounding page stable.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   if (data.projects.length === 0) return null;
 
   const featured = data.projects.filter((p) => p.featured);
   const rest = data.projects.filter((p) => !p.featured);
+
+  const selectedProject =
+    selectedId !== null
+      ? data.projects.find((p) => p.id === selectedId)
+      : null;
 
   return (
     <div>
       {featured.length > 0 && (
         <div className={styles.projectFeatured}>
           {featured.map((p) => (
-            <ProjectCard key={p.id} project={p} large />
+            <ProjectCard
+              key={p.id}
+              project={p}
+              large
+              onOpen={() => setSelectedId(p.id)}
+            />
           ))}
         </div>
       )}
       {rest.length > 0 && (
         <div className={styles.projectGrid}>
           {rest.map((p) => (
-            <ProjectCard key={p.id} project={p} />
+            <ProjectCard
+              key={p.id}
+              project={p}
+              onOpen={() => setSelectedId(p.id)}
+            />
           ))}
         </div>
+      )}
+      {selectedProject && (
+        <ProjectModal
+          project={selectedProject}
+          onClose={() => setSelectedId(null)}
+        />
       )}
     </div>
   );
@@ -197,15 +226,23 @@ export function ProjectsSection({ data }: { data: LayoutData }) {
 function ProjectCard({
   project,
   large = false,
+  onOpen,
 }: {
   project: LayoutData["projects"][number];
   large?: boolean;
+  onOpen: () => void;
 }) {
   const hero = project.images?.[0];
   return (
-    <article
-      className={`${styles.card} ${styles.cardHover} ${styles.projectCard}`}
+    // Whole card is a button — clicking anywhere opens the detail view.
+    // External demo/source links move to the detail page so they don't
+    // compete with the card's primary "open this project" affordance.
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`${styles.card} ${styles.cardHover} ${styles.projectCard} ${styles.projectCardButton}`}
       data-cursor="hover"
+      aria-label={`Open ${project.title}`}
     >
       {hero && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -226,7 +263,11 @@ function ProjectCard({
         </div>
         <h3 className={styles.projectTitle}>{project.title}</h3>
         {project.description && (
-          <p className={styles.projectDesc}>{project.description}</p>
+          // Card preview shows only the first paragraph; full description
+          // (all paragraphs) renders in the detail view.
+          <p className={styles.projectDesc}>
+            {project.description.split(/\n{2,}/)[0]}
+          </p>
         )}
         {project.tech && project.tech.length > 0 && (
           <ul className={styles.projectTech}>
@@ -235,66 +276,202 @@ function ProjectCard({
                 {t}
               </li>
             ))}
+            {project.tech.length > 8 && (
+              <li className={styles.projectTechChip}>
+                +{project.tech.length - 8}
+              </li>
+            )}
           </ul>
         )}
-        {(project.demoUrl || project.sourceUrl || project.videoUrl) && (
-          <div className={styles.projectLinks}>
-            {project.demoUrl && (
-              <a
-                className={styles.projectLink}
-                href={project.demoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Demo ↗
-              </a>
-            )}
-            {project.sourceUrl && (
-              <a
-                className={styles.projectLink}
-                href={project.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Source ↗
-              </a>
-            )}
-            {project.videoUrl && (
-              <a
-                className={styles.projectLink}
-                href={project.videoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Video ↗
-              </a>
-            )}
-          </div>
-        )}
-        {/* Additional images beyond the hero — rendered as a tight grid
-            below the hero/text. Brutalist aesthetic: 2px borders, no gaps
-            larger than 8px. Lazy-loaded so off-screen images don't block
-            initial paint. */}
-        {project.images && project.images.length > 1 && (
-          <div className={styles.projectGalleryAdditional}>
-            {project.images.slice(1, 7).map((img) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={img.id}
-                src={deriveUrl(img.publicId, {
-                  width: 600,
-                  height: 450,
-                  crop: "fill",
-                })}
-                alt={img.caption ?? ""}
-                className={styles.projectGalleryImg}
-                loading="lazy"
-              />
-            ))}
-          </div>
-        )}
+        {/* CTA arrow — brutalist hazard-yellow with hard shadow on hover.
+         * Visually communicates "this card is clickable" without needing
+         * a separate button. */}
+        <div className={styles.projectOpenCta} aria-hidden="true">
+          Open project →
+        </div>
       </div>
-    </article>
+    </button>
+  );
+}
+
+/* ─── Project modal (portal overlay) ─────────────────────────── */
+
+/*
+ * Brutalist project modal: full project content in a centered overlay.
+ *
+ * Design language: hazard-yellow accent border at top, 2px solid black
+ * everywhere, hard offset shadow (8px 8px 0 with no blur), zero rounded
+ * corners. The close button is a hazard-yellow square in the top right.
+ *
+ * Modal contract:
+ *   - createPortal to document.body so it escapes any clipping context
+ *   - ESC, click backdrop, or click close button to dismiss
+ *   - Body scroll locked while open (with iOS fallback on html element)
+ *   - SSR-safe via mount gate (createPortal needs document.body)
+ */
+function ProjectModal({
+  project,
+  onClose,
+}: {
+  project: LayoutData["projects"][number];
+  onClose: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  const hero = project.images?.[0];
+  const extraImages = (project.images ?? []).slice(1);
+
+  return createPortal(
+    <div
+      className={styles.modalBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-label={project.title}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className={styles.modalShell}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={styles.modalClose}
+          data-cursor="hover"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+
+        <div className={styles.modalContent}>
+          {hero && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className={styles.modalHero}
+              src={deriveUrl(hero.publicId, {
+                width: 1800,
+                height: 900,
+                crop: "fill",
+              })}
+              alt={hero.caption ?? project.title}
+            />
+          )}
+
+          <div className={styles.modalKicker}>
+            {[project.role, project.year].filter(Boolean).join(" · ")}
+          </div>
+          <h2 className={styles.modalTitle}>{project.title}</h2>
+
+          {project.description && (
+            <div className={styles.modalBody}>
+              {project.description.split(/\n{2,}/).map((para, i) => (
+                <p key={i} className={styles.modalPara}>
+                  {para}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {project.tech && project.tech.length > 0 && (
+            <div className={styles.modalSection}>
+              <h3 className={styles.modalSectionLabel}>Stack</h3>
+              <ul className={styles.projectTech}>
+                {project.tech.map((t) => (
+                  <li key={t} className={styles.projectTechChip}>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(project.demoUrl || project.sourceUrl || project.videoUrl) && (
+            <div className={styles.modalSection}>
+              <h3 className={styles.modalSectionLabel}>Links</h3>
+              <div className={styles.projectLinks}>
+                {project.demoUrl && (
+                  <a
+                    className={styles.projectLink}
+                    href={project.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Demo ↗
+                  </a>
+                )}
+                {project.sourceUrl && (
+                  <a
+                    className={styles.projectLink}
+                    href={project.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Source ↗
+                  </a>
+                )}
+                {project.videoUrl && (
+                  <a
+                    className={styles.projectLink}
+                    href={project.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Video ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {extraImages.length > 0 && (
+            <div className={styles.modalSection}>
+              <h3 className={styles.modalSectionLabel}>Gallery</h3>
+              <div className={styles.modalGallery}>
+                {extraImages.map((img) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={img.id}
+                    src={deriveUrl(img.publicId, {
+                      width: 1200,
+                      height: 800,
+                      crop: "fill",
+                    })}
+                    alt={img.caption ?? ""}
+                    className={styles.projectGalleryImg}
+                    loading="lazy"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -341,6 +518,8 @@ export function LeetCodeStats({ data }: { data: LayoutData }) {
           label="rank"
         />
         <Stat value={l.country ?? "—"} label="country" />
+        {/* Real name — parity with Terminal. Only render if provided. */}
+        {l.realName && <Stat value={l.realName} label="name" />}
       </StatGrid>
       {/* Difficulty breakdown — rendered as ratios out of the approximate
           problem pool. Mirrors what single-page LeetCode shows. */}
@@ -860,6 +1039,35 @@ export function GitHubFull({ data }: { data: LayoutData }) {
           ))}
         </div>
       )}
+      {/* Top repos — ranked by stars. Was a parity gap before; brutalist
+       * shows them as bordered list rows in mono-uppercase with star and
+       * language pinned right. */}
+      {g.topRepos && g.topRepos.length > 0 && (
+        <div className={styles.topReposList}>
+          {g.topRepos.slice(0, 6).map((repo) => (
+            <a
+              key={repo.fullName}
+              href={repo.htmlUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.topRepoRow}
+              data-cursor="hover"
+            >
+              <div className={styles.topRepoName}>{repo.name}</div>
+              {repo.description && (
+                <div className={styles.topRepoDesc}>{repo.description}</div>
+              )}
+              <div className={styles.topRepoMeta}>
+                {repo.language && <span>{repo.language}</span>}
+                <span>★ {repo.stars.toLocaleString("en-US")}</span>
+                {repo.forks > 0 && (
+                  <span>⑂ {repo.forks.toLocaleString("en-US")}</span>
+                )}
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
       {g.contributions && g.contributions.days.length > 0 && (
         <ContributionHeatmap
           days={g.contributions.days}
@@ -1042,21 +1250,65 @@ export function WritingSection({ data }: { data: LayoutData }) {
 export function MLSection({ data }: { data: LayoutData }) {
   const hf = data.huggingface?.data;
   if (!hf || hf.items.length === 0) return null;
+
+  // HF account totals — parity gap (Bento + Terminal show these,
+  // Brutalist + Press didn't until now). Slammed-in header strip in
+  // brutalist hazard-yellow above the grid: byline that says exactly
+  // what's on the user's full HuggingFace presence.
+  const hasTotals =
+    hf.totalModels !== undefined ||
+    hf.totalDatasets !== undefined ||
+    hf.totalSpaces !== undefined;
+
   return (
-    <div className={styles.hfGrid}>
-      {hf.items.slice(0, 10).map((it) => (
-        <a
-          key={`${it.kind}-${it.id}`}
-          href={it.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.hfItem}
-        >
-          <div className={styles.hfKind}>{it.kind}</div>
-          <div className={styles.hfName}>{it.name}</div>
-          {it.pipelineTag && <div className={styles.hfTag}>{it.pipelineTag}</div>}
-        </a>
-      ))}
+    <div>
+      {hasTotals && (
+        <div className={styles.hfTotalsStrip}>
+          <a
+            href={`https://huggingface.co/${hf.username}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.hfTotalsHandle}
+            data-cursor="hover"
+          >
+            @{hf.username}
+          </a>
+          <span className={styles.hfTotalsSep}>·</span>
+          {hf.totalModels !== undefined && (
+            <span className={styles.hfTotalsItem}>
+              <span className={styles.hfTotalsNum}>{hf.totalModels}</span>
+              <span className={styles.hfTotalsLabel}>models</span>
+            </span>
+          )}
+          {hf.totalDatasets !== undefined && (
+            <span className={styles.hfTotalsItem}>
+              <span className={styles.hfTotalsNum}>{hf.totalDatasets}</span>
+              <span className={styles.hfTotalsLabel}>datasets</span>
+            </span>
+          )}
+          {hf.totalSpaces !== undefined && (
+            <span className={styles.hfTotalsItem}>
+              <span className={styles.hfTotalsNum}>{hf.totalSpaces}</span>
+              <span className={styles.hfTotalsLabel}>spaces</span>
+            </span>
+          )}
+        </div>
+      )}
+      <div className={styles.hfGrid}>
+        {hf.items.slice(0, 10).map((it) => (
+          <a
+            key={`${it.kind}-${it.id}`}
+            href={it.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.hfItem}
+          >
+            <div className={styles.hfKind}>{it.kind}</div>
+            <div className={styles.hfName}>{it.name}</div>
+            {it.pipelineTag && <div className={styles.hfTag}>{it.pipelineTag}</div>}
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

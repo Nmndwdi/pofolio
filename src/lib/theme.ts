@@ -16,7 +16,7 @@ import type { LayoutId } from "@/lib/validators/profile";
  * needed — templates ignore it and render their own scoped styles.
  */
 
-const ACTIVE_LAYOUTS: LayoutId[] = ["terminal", "brutalist", "press"];
+const ACTIVE_LAYOUTS: LayoutId[] = ["terminal", "brutalist", "press", "bento"];
 
 export function resolveLayout(stored: unknown): LayoutId {
   if (typeof stored !== "string") return "press";

@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { LayoutData } from "@/components/layouts/types";
 import { deriveUrl } from "@/lib/cloudinary-url";
 import styles from "./press.module.css";
@@ -446,22 +447,25 @@ export function MoreWorkSpread({
 }
 
 /*
- * ExpandableProjectCard — clickable card that expands inline to show all
- * project detail (full description, tech list, all images carousel, all
- * links). Collapsed state = the compact card from before (image + title +
- * 3-line lede + year/first-3-tech). Expanded state = the same Featured Work
- * detail treatment, just contained in the page container.
+ * ProjectCardModal — clickable preview that opens a portal modal with the
+ * full project detail (description, role, all images, all links).
  *
- * Why inline expand instead of modal/drawer:
- *   - Modals interrupt the reading flow; expansion keeps the reader anchored
- *   - Modals require focus traps + escape handling + body scroll lock; an
- *     inline expand has none of that complexity
- *   - Multiple projects can be expanded at once if the user wants to compare
+ * Why modal instead of inline expand:
+ *   - Inline expand pushed siblings down which caused awkward reflow
+ *     mid-page on a long-form editorial layout. Modals keep the project
+ *     grid stable while the user inspects one project.
+ *   - A single modal at a time mirrors how news/editorial sites handle
+ *     "deep dive" content (Vox, NYT magazine, etc.).
  *
- * Animation: max-height + opacity transition on the expanded panel. We use
- * a generous max-height (3000px) since project descriptions can be long;
- * the transition still feels smooth because we're animating the visual
- * change, not the actual height computation.
+ * Modal contract:
+ *   - Renders via createPortal to document.body so it escapes any
+ *     containing transform/overflow/z-index stacking context
+ *   - Click backdrop, press ESC, or click the close button to dismiss
+ *   - Body scroll locked while open
+ *   - Cleans up listeners + scroll lock on unmount
+ *
+ * Card preview matches the old collapsed state: image + numeral + title +
+ * 3-line lede + year/first-3-tech + a "Read more" affordance.
  */
 function ExpandableProjectCard({
   project,
@@ -470,137 +474,233 @@ function ExpandableProjectCard({
   project: LayoutData["projects"][number];
   numeral: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
   const hero = project.images?.[0];
-  const galleryImages = project.images?.slice(1) ?? [];
 
   return (
-    <article
-      className={`${styles.projectCard} ${expanded ? styles.projectCardExpanded : ""}`}
+    <>
+      <article className={styles.projectCard}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={styles.projectCardButton}
+          aria-label={`Open ${project.title}`}
+        >
+          <div className={styles.projectCardImageWrap}>
+            {hero ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={deriveUrl(hero.publicId, {
+                  width: 800,
+                  height: 600,
+                  crop: "fill",
+                })}
+                alt={hero.caption || project.title}
+                className={styles.projectCardImage}
+                loading="lazy"
+              />
+            ) : (
+              <div className={styles.projectCardImage} />
+            )}
+          </div>
+          <div className={styles.projectCardBody}>
+            <div className={styles.projectCardNum}>№ {numeral}</div>
+            <h3 className={styles.projectCardTitle}>{project.title}</h3>
+            {project.description && (
+              <p className={styles.projectCardLede}>{project.description}</p>
+            )}
+            {(project.year || (project.tech && project.tech.length > 0)) && (
+              <div className={styles.projectCardMeta}>
+                {project.year && <span>{project.year}</span>}
+                {project.tech && project.tech.length > 0 && (
+                  <span>{project.tech.slice(0, 3).join(", ")}</span>
+                )}
+              </div>
+            )}
+            <span className={styles.projectCardToggle} aria-hidden="true">
+              Read more →
+            </span>
+          </div>
+        </button>
+      </article>
+      {open && (
+        <ProjectModal project={project} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+/*
+ * ProjectModal — full-screen overlay with the project detail. Editorial
+ * design: cream background, oxblood serif title, mono-uppercase labels,
+ * close button top-right. Uses createPortal so it renders at the document
+ * root and escapes any clipping context.
+ *
+ * Body scroll lock: while open we set overflow:hidden on documentElement
+ * AND body to cover all browsers — iOS Safari requires both. Cleanup
+ * restores the previous values rather than blanking them, in case some
+ * other component had set scroll values for its own reasons.
+ */
+function ProjectModal({
+  project,
+  onClose,
+}: {
+  project: LayoutData["projects"][number];
+  onClose: () => void;
+}) {
+  // SSR guard — createPortal needs document.body which doesn't exist on
+  // the server. We render nothing on the server pass; the modal only
+  // appears post-hydration when the user clicks "Read more".
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // ESC to close
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Body scroll lock
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  const hero = project.images?.[0];
+  const galleryImages = project.images?.slice(hero ? 1 : 0) ?? [];
+
+  return createPortal(
+    <div
+      className={styles.modalBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-label={project.title}
+      onClick={(e) => {
+        // Only close when the backdrop itself is clicked, not bubbled
+        // events from inside the modal content.
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className={styles.projectCardButton}
-        aria-expanded={expanded}
-      >
-        <div className={styles.projectCardImageWrap}>
-          {hero ? (
+      <div className={styles.modalShell}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={styles.modalClose}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+        <div className={styles.modalContent}>
+          {hero && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={deriveUrl(hero.publicId, {
-                width: 800,
-                height: 600,
+                width: 1800,
+                height: 900,
                 crop: "fill",
               })}
               alt={hero.caption || project.title}
-              className={styles.projectCardImage}
-              loading="lazy"
+              className={styles.modalHero}
             />
-          ) : (
-            <div className={styles.projectCardImage} />
           )}
-        </div>
-        <div className={styles.projectCardBody}>
-          <div className={styles.projectCardNum}>№ {numeral}</div>
-          <h3 className={styles.projectCardTitle}>{project.title}</h3>
+          <div className={styles.kicker} style={{ marginTop: hero ? 24 : 0 }}>
+            <span className={styles.kickerNum}>Project</span>
+            {project.year && <span>{project.year}</span>}
+            {project.role && <span>{project.role}</span>}
+          </div>
+          <h2 className={styles.modalTitle}>{project.title}</h2>
           {project.description && (
-            <p
-              className={
-                expanded
-                  ? styles.projectCardLedeFull
-                  : styles.projectCardLede
-              }
-            >
-              {project.description}
-            </p>
-          )}
-          {(project.year || (project.tech && project.tech.length > 0)) && (
-            <div className={styles.projectCardMeta}>
-              {project.year && <span>{project.year}</span>}
-              {project.tech && project.tech.length > 0 && (
-                <span>
-                  {expanded
-                    ? project.tech.join(", ")
-                    : project.tech.slice(0, 3).join(", ")}
-                </span>
-              )}
+            <div className={styles.modalBody}>
+              {project.description.split(/\n{2,}/).map((para, i) => (
+                <p key={i} className={styles.modalPara}>
+                  {para}
+                </p>
+              ))}
             </div>
           )}
-          <span className={styles.projectCardToggle} aria-hidden="true">
-            {expanded ? "− Less" : "+ More"}
-          </span>
+
+          {project.tech && project.tech.length > 0 && (
+            <div className={styles.modalSection}>
+              <div className={styles.modalSectionLabel}>Stack</div>
+              <div className={styles.modalTech}>
+                {project.tech.map((t) => (
+                  <span key={t} className={styles.modalTechChip}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(project.demoUrl || project.sourceUrl || project.videoUrl) && (
+            <div className={styles.modalSection}>
+              <div className={styles.modalSectionLabel}>Links</div>
+              <div className={styles.modalLinks}>
+                {project.demoUrl && (
+                  <a
+                    href={project.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.modalLink}
+                  >
+                    Live demo ↗
+                  </a>
+                )}
+                {project.sourceUrl && (
+                  <a
+                    href={project.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.modalLink}
+                  >
+                    Source ↗
+                  </a>
+                )}
+                {project.videoUrl && (
+                  <a
+                    href={project.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.modalLink}
+                  >
+                    Video ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {galleryImages.length > 0 && (
+            <div className={styles.modalSection}>
+              <div className={styles.modalSectionLabel}>Gallery</div>
+              <FeaturedGallery
+                images={galleryImages.map((img) => ({
+                  id: img.id,
+                  publicId: img.publicId,
+                  caption: img.caption,
+                }))}
+                projectTitle={project.title}
+              />
+            </div>
+          )}
         </div>
-      </button>
-
-      {/* Expanded detail panel — only animated visible on expansion. Sits
-          below the clickable card area. All metadata, links, and the image
-          gallery (if any extras exist). */}
-      <div
-        className={styles.projectCardDetail}
-        // aria-hidden when collapsed so screen readers skip it; visible
-        // when expanded.
-        aria-hidden={!expanded}
-      >
-        {(project.role ||
-          project.demoUrl ||
-          project.sourceUrl ||
-          project.videoUrl) && (
-          <div className={styles.projectCardDetailMeta}>
-            {project.role && (
-              <span>
-                <span className={styles.projectCardDetailLabel}>Role</span>
-                {project.role}
-              </span>
-            )}
-            {project.demoUrl && (
-              <a
-                href={project.demoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.projectCardDetailLink}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Demo ↗
-              </a>
-            )}
-            {project.sourceUrl && (
-              <a
-                href={project.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.projectCardDetailLink}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Source ↗
-              </a>
-            )}
-            {project.videoUrl && (
-              <a
-                href={project.videoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.projectCardDetailLink}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Watch ↗
-              </a>
-            )}
-          </div>
-        )}
-
-        {galleryImages.length > 0 && (
-          <FeaturedGallery
-            images={galleryImages.map((img) => ({
-              id: img.id,
-              publicId: img.publicId,
-              caption: img.caption,
-            }))}
-            projectTitle={project.title}
-          />
-        )}
       </div>
-    </article>
+    </div>,
+    document.body,
   );
 }
 
@@ -668,6 +768,57 @@ function GitHubBlock({ data }: { data: LayoutData }) {
       {g.contributions && g.contributions.days.length > 0 && (
         <Heatmap days={g.contributions.days} label="Contribution activity" />
       )}
+      {/* Top repos — was a parity gap; the integration returns them
+       * ranked by stars. Press treatment: bordered list with serif name +
+       * italic description, mono-uppercase meta line for language/stars.
+       * Limited to 6 to keep the spread balanced. */}
+      {g.topRepos && g.topRepos.length > 0 && (
+        <div className={styles.topReposList}>
+          <div className={styles.topReposLabel}>Top repositories</div>
+          {g.topRepos.slice(0, 6).map((repo) => (
+            <a
+              key={repo.fullName}
+              href={repo.htmlUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.topRepoRow}
+            >
+              <div className={styles.topRepoNameRow}>
+                <span className={styles.topRepoName}>{repo.name}</span>
+                <span className={styles.topRepoMeta}>
+                  {repo.language && (
+                    <span>{repo.language}</span>
+                  )}
+                  <span>★ {repo.stars.toLocaleString("en-US")}</span>
+                </span>
+              </div>
+              {repo.description && (
+                <div className={styles.topRepoDesc}>{repo.description}</div>
+              )}
+            </a>
+          ))}
+        </div>
+      )}
+      {/* Language breakdown — was a parity gap. Terminal + Brutalist + Bento
+       * all show this. Press treatment: small caps label, then a row of
+       * chips with the language name and a count of how many of the user's
+       * non-fork repos use it as primary. */}
+      {g.languageBreakdown && g.languageBreakdown.length > 0 && (
+        <div className={styles.langStrip}>
+          <div className={styles.topReposLabel}>Languages</div>
+          <div className={styles.langChipRow}>
+            {g.languageBreakdown.slice(0, 10).map((lang) => (
+              <span key={lang.language} className={styles.langChipPress}>
+                {lang.language}
+                <span className={styles.langChipCount}>
+                  {" "}
+                  ×{lang.count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -676,6 +827,9 @@ function LeetCodeBlock({ data }: { data: LayoutData }) {
   const l = data.leetcode?.data;
   if (!l) return null;
   const TOTALS = { easy: 875, medium: 1900, hard: 860 };
+  // Compute max streak from the submission heatmap. Terminal does this
+  // already; we mirror so the surfaces line up.
+  const maxStreak = computeMaxStreak(l.submissionHeatmap ?? []);
   return (
     <div className={styles.platformBlock}>
       <div className={styles.platformHead}>
@@ -688,6 +842,12 @@ function LeetCodeBlock({ data }: { data: LayoutData }) {
         >
           @{l.username} ↗
         </a>
+        {/* Real name — parity with Terminal which shows `name`. Editorial
+         * subtitle treatment, italic serif so it reads like an article
+         * byline. */}
+        {l.realName && (
+          <div className={styles.platformByline}>{l.realName}</div>
+        )}
       </div>
       <div className={styles.statTiles}>
         <Tile value={l.totalSolved.toLocaleString("en-US")} label="Solved" />
@@ -696,13 +856,14 @@ function LeetCodeBlock({ data }: { data: LayoutData }) {
           label="Global rank"
         />
         <Tile value={String(l.currentStreak ?? 0)} label="Current streak" />
+        <Tile value={String(maxStreak)} label="Max streak" />
+        {/* Country and Active days — surfaced previously only by Terminal
+         * and Brutalist; the press tile grid expands to four rows of two
+         * tiles each, so we keep adding without crowding. */}
+        <Tile value={l.country ?? "—"} label="Country" />
         <Tile
-          value={
-            l.contestHistory && l.contestHistory.length > 0
-              ? String(l.contestHistory[l.contestHistory.length - 1].rating)
-              : "—"
-          }
-          label="Contest rating"
+          value={String(l.totalActiveDays ?? 0)}
+          label="Active days"
         />
       </div>
       <div className={styles.ratioStrip}>
@@ -713,8 +874,50 @@ function LeetCodeBlock({ data }: { data: LayoutData }) {
       {l.submissionHeatmap && l.submissionHeatmap.length > 0 && (
         <Heatmap days={l.submissionHeatmap} label="Submission activity" />
       )}
+      {/* Contest rating chart — was a parity gap; we had only a "latest
+       * rating" number tile. Brutalist + Terminal both render a real
+       * chart. Reuse the existing RatingChart component (the one used by
+       * Codeforces) so visual style stays consistent. */}
+      {l.contestHistory && l.contestHistory.length >= 2 && (
+        <RatingChart
+          points={l.contestHistory.map((p) => ({
+            t: p.timestamp * 1000,
+            v: p.rating,
+          }))}
+        />
+      )}
     </div>
   );
+}
+
+/* Compute the longest run of consecutive days with submissions. Used by
+ * LeetCode + Codeforces blocks. Matches Terminal's identical algorithm. */
+function computeMaxStreak(
+  heatmap: Array<{ date: string; count: number }>,
+): number {
+  if (heatmap.length === 0) return 0;
+  const sorted = [...heatmap].sort((a, b) => a.date.localeCompare(b.date));
+  let max = 0;
+  let cur = 0;
+  let prevDate: Date | null = null;
+  for (const d of sorted) {
+    if (d.count === 0) {
+      cur = 0;
+      prevDate = null;
+      continue;
+    }
+    const today = new Date(d.date);
+    if (prevDate) {
+      const diff =
+        (today.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000);
+      cur = diff === 1 ? cur + 1 : 1;
+    } else {
+      cur = 1;
+    }
+    if (cur > max) max = cur;
+    prevDate = today;
+  }
+  return max;
 }
 
 function Tile({ value, label }: { value: string; label: string }) {
@@ -796,6 +999,29 @@ export function CompetitiveSpread({ data }: { data: LayoutData }) {
           value={String(c.contestsParticipated)}
           label="Contests"
         />
+        {/* Country, organization, computed max streak and active days —
+         * surfaced by Brutalist + Terminal previously; Press was missing
+         * them. The tile grid wraps onto extra rows automatically. */}
+        {c.user.country && (
+          <Tile value={c.user.country} label="Country" />
+        )}
+        {c.user.organization && (
+          <Tile value={c.user.organization} label="Organization" />
+        )}
+        {c.submissionHeatmap && c.submissionHeatmap.length > 0 && (
+          <>
+            <Tile
+              value={String(computeMaxStreak(c.submissionHeatmap))}
+              label="Max streak"
+            />
+            <Tile
+              value={String(
+                c.submissionHeatmap.filter((d) => d.count > 0).length,
+              )}
+              label="Active days"
+            />
+          </>
+        )}
       </div>
       {ratingPoints.length >= 2 && (
         <RatingChart points={ratingPoints} />
@@ -938,9 +1164,13 @@ export function WritingSpread({
     }),
     title: a.title,
     url: a.url,
+    // Tags joined into the meta line — parity gap before: Terminal +
+    // Brutalist showed tags, Press + Bento did not. Cap at 3 tags so the
+    // line doesn't overflow.
     meta: [
       a.readingTimeMinutes ? `${a.readingTimeMinutes} min read` : null,
       a.reactionsCount > 0 ? `♥ ${a.reactionsCount}` : null,
+      a.tags && a.tags.length > 0 ? a.tags.slice(0, 3).join(" · ") : null,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -971,21 +1201,31 @@ export function MachineLearningSpread({
 }) {
   if (!data.huggingface?.data || data.huggingface.data.items.length === 0)
     return null;
-  const rows: WireRow[] = data.huggingface.data.items
-    .slice(0, 12)
-    .map((it) => ({
-      key: `hf-${it.kind}-${it.id}`,
-      // Kind serves as the source kicker: MODEL / DATASET / SPACE.
-      source: it.kind.toUpperCase(),
-      title: it.name,
-      url: it.url,
-      meta: [
-        it.pipelineTag,
-        it.likes > 0 ? `♥ ${it.likes.toLocaleString("en-US")}` : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    }));
+  const hf = data.huggingface.data;
+  const rows: WireRow[] = hf.items.slice(0, 12).map((it) => ({
+    key: `hf-${it.kind}-${it.id}`,
+    // Kind serves as the source kicker: MODEL / DATASET / SPACE.
+    source: it.kind.toUpperCase(),
+    title: it.name,
+    url: it.url,
+    meta: [
+      it.pipelineTag,
+      it.likes > 0 ? `♥ ${it.likes.toLocaleString("en-US")}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  }));
+
+  // HF account totals — parity gap (Bento + Terminal surfaced these,
+  // Press + Brutalist did not). Join into a small subtitle below the
+  // kicker so the section feels grounded in the user's full HF presence.
+  const totals = [
+    hf.totalModels !== undefined ? `${hf.totalModels} models` : null,
+    hf.totalDatasets !== undefined ? `${hf.totalDatasets} datasets` : null,
+    hf.totalSpaces !== undefined ? `${hf.totalSpaces} spaces` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className={styles.wire}>
@@ -997,6 +1237,11 @@ export function MachineLearningSpread({
         <h2 className={styles.indexTitle}>
           Models, datasets &amp; spaces
         </h2>
+        {totals && (
+          <div className={styles.hfTotals}>
+            @{hf.username} · {totals}
+          </div>
+        )}
       </div>
       <WireList rows={rows} />
     </div>
@@ -1265,6 +1510,10 @@ function Heatmap({
       </div>
     );
   }
+  // Summary stats above the calendar — Terminal + Brutalist + Bento all
+  // surface these; Press was missing the line.
+  const totalCount = filtered.reduce((s, d) => s + d.count, 0);
+  const activeDays = filtered.filter((d) => d.count > 0).length;
   const max = filtered.reduce((m, d) => (d.count > m ? d.count : m), 0);
   const levelFor = (count: number): -1 | 0 | 1 | 2 | 3 | 4 => {
     if (count === 0) return 0;
@@ -1337,6 +1586,9 @@ function Heatmap({
   return (
     <div className={styles.heatmap}>
       <div className={styles.heatmapLabel}>{label}</div>
+      <div className={styles.heatmapSummary}>
+        {totalCount.toLocaleString("en-US")} total · {activeDays} active days
+      </div>
       {availableYears.length > 1 && (
         <div className={styles.heatmapYears}>
           {availableYears.map((y) => (

@@ -1008,14 +1008,9 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                 onChange={field.onChange}
                 options={[
                   {
-                    value: "sidebar",
-                    label: "Sidebar",
-                    desc: "Fixed left rail with nav, content right",
-                  },
-                  {
-                    value: "single",
-                    label: "Single page",
-                    desc: "Long single column, no nav",
+                    value: "press",
+                    label: "Press",
+                    desc: "Editorial newspaper — oxblood serifs, kinetic typography",
                   },
                   {
                     value: "terminal",
@@ -1028,21 +1023,9 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                     desc: "Massive type, hazard yellow, hard shadows — loud",
                   },
                   {
-                    value: "press",
-                    label: "Press",
-                    desc: "Editorial newspaper — oxblood serifs, kinetic typography",
-                  },
-                  {
-                    value: "multipage",
-                    label: "Multi-page",
-                    desc: "Top nav, separate pages (coming soon)",
-                    disabled: true,
-                  },
-                  {
-                    value: "grid",
-                    label: "Grid",
-                    desc: "Visual-first, projects dominate (coming soon)",
-                    disabled: true,
+                    value: "bento",
+                    label: "Bento OS",
+                    desc: "Desktop OS — dock launches frosted-glass windowed apps",
                   },
                 ]}
               />
