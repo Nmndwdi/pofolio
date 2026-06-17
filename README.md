@@ -66,7 +66,7 @@ Each template renders from the same `LayoutData` shape defined in [`src/componen
 
 ```bash
 # 1. Clone
-git clone https://github.com/<your-handle>/pofolio.git
+git clone https://github.com/Nmndwdi/pofolio.git
 cd pofolio
 
 # 2. Install
@@ -239,7 +239,7 @@ Pofolio is released under the [MIT License](LICENSE). You can use it commerciall
 
 ## Acknowledgments
 
-Built by [Naman](https://github.com/<your-handle>) and contributors.
+Built by [Naman Dwivedi](https://github.com/Nmndwdi) and contributors.
 
 Powered by:
 - [Next.js](https://nextjs.org)
