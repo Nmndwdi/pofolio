@@ -24,7 +24,7 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://pofoliox.vercel.app/";
   const vcard = buildVCard({
     displayName: profile.displayName,
     headline: profile.headline,

@@ -37,7 +37,7 @@ export default async function Image({
   const { slug } = await params;
   // Build absolute URL because Edge runtime fetch needs one.
   const base =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://pofoliox.vercel.app/";
 
   let profile: PublicProfileResponse | null = null;
   try {

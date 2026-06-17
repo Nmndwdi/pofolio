@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   description:
     "A live portfolio at one permanent URL. Auto-fetched from GitHub, Codeforces, LeetCode and more. Share it via QR or link.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://pofoliox.vercel.app/",
   ),
 };
 

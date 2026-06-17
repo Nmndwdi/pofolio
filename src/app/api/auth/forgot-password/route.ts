@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     });
     await user.save();
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/reset-password/${token}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://pofoliox.vercel.app/"}/reset-password/${token}`;
     const tpl = passwordResetEmailTemplate(resetUrl);
     await sendEmail({ to: email, ...tpl });
   }

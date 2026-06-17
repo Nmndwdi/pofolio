@@ -75,7 +75,7 @@ export async function POST(req: Request) {
   user.verifyEmailLastSentAt = new Date();
   await user.save();
 
-  const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/auth/verify?token=${token}`;
+  const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://pofoliox.vercel.app/"}/api/auth/verify?token=${token}`;
   const tpl = verificationEmailTemplate(verifyUrl);
   await sendEmail({ to: user.email, ...tpl });
 

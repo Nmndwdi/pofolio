@@ -63,13 +63,17 @@ jobs:
 
       # Build with placeholder env vars so Next.js can complete the build.
       # We're not actually connecting to services — just verifying the bundle compiles.
+      # Real env var names match the project's actual .env.example.
       - name: Build
         env:
           MONGODB_URI: "mongodb://localhost:27017/ci-placeholder"
-          NEXTAUTH_URL: "http://localhost:3000"
-          NEXTAUTH_SECRET: "ci-placeholder-secret-not-used"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          AUTH_SECRET: "ci-placeholder-secret-not-used-in-build"
           CLOUDINARY_CLOUD_NAME: "ci-placeholder"
           CLOUDINARY_API_KEY: "ci-placeholder"
           CLOUDINARY_API_SECRET: "ci-placeholder"
-          NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: "ci-placeholder"
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: "ci-placeholder"
+          RESEND_API_KEY: "ci-placeholder"
+          RESEND_FROM_EMAIL: "noreply@example.com"
+          # OAuth + GITHUB_TOKEN intentionally blank — they're optional
         run: npm run build

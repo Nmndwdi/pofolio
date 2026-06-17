@@ -8,8 +8,10 @@ Before deploying, you need:
 
 - A **GitHub repo** with your Pofolio fork pushed to it
 - A **MongoDB Atlas** cluster (free M0 tier is fine to start) — get the connection string ready
-- A **Cloudinary** account with cloud name, API key, secret, and an unsigned upload preset
-- An **MSG91** account with an approved email OTP template (for production auth)
+- A **Cloudinary** account with cloud name, API key, and API secret
+- A **Resend** account with a verified sender domain (free tier is 3000 emails/month)
+- (Optional) **Google OAuth** credentials if you want Google sign-in
+- (Optional) **GitHub OAuth App** credentials if you want GitHub sign-in
 - (Optional) A **custom domain** if you don't want a `.vercel.app` URL
 
 ## Step 1 — Create a Vercel account
@@ -40,39 +42,52 @@ Click **Environment Variables** to expand that section. Add each of the followin
 | Key | Value | Notes |
 |-----|-------|-------|
 | `MONGODB_URI` | `mongodb+srv://...` | From Atlas → Connect → Drivers. Use a project-specific user with read/write access only to the pofolio database. |
-| `NEXTAUTH_URL` | `https://your-app.vercel.app` | Set this AFTER your first deploy, when you know the URL. For Preview deployments, Vercel auto-injects the right URL — don't set Preview scope. |
-| `NEXTAUTH_SECRET` | (random 32-byte string) | Generate with `openssl rand -base64 32` |
+| `NEXT_PUBLIC_APP_URL` | `https://your-app.vercel.app` | Absolute URL of the deployed app. Set this AFTER your first deploy when you know the URL. For Preview deployments, you can leave it as the production URL — most uses (OG image, email links) work without per-PR URLs. |
+| `AUTH_SECRET` | (random 32-byte string) | Generate with `openssl rand -base64 32`. Different from your local dev secret. |
+
+### OAuth providers (optional)
+
+Leave blank to disable that provider.
+
+| Key | Value |
+|-----|-------|
+| `AUTH_GOOGLE_ID` | Google OAuth client ID |
+| `AUTH_GOOGLE_SECRET` | Google OAuth client secret |
+| `AUTH_GITHUB_ID` | GitHub OAuth App client ID |
+| `AUTH_GITHUB_SECRET` | GitHub OAuth App client secret |
+
+> **OAuth redirect URLs**: when registering OAuth apps, the callback URL is `<NEXT_PUBLIC_APP_URL>/api/auth/callback/<provider>` — e.g. `https://your-app.vercel.app/api/auth/callback/google`.
 
 ### Cloudinary
 
 | Key | Value |
 |-----|-------|
-| `CLOUDINARY_CLOUD_NAME` | from Cloudinary dashboard |
-| `CLOUDINARY_API_KEY` | from Cloudinary dashboard |
-| `CLOUDINARY_API_SECRET` | from Cloudinary dashboard |
-| `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | name of your unsigned upload preset |
+| `CLOUDINARY_CLOUD_NAME` | From Cloudinary dashboard |
+| `CLOUDINARY_API_KEY` | From Cloudinary dashboard |
+| `CLOUDINARY_API_SECRET` | From Cloudinary dashboard — never expose |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | Same value as `CLOUDINARY_CLOUD_NAME`, exposed to the browser for building delivery URLs |
 
-The `NEXT_PUBLIC_` prefix exposes the variable to the client. Only the upload preset name is safe to expose; never the API secret.
+The `NEXT_PUBLIC_` prefix exposes the variable to the client. Only the cloud name is safe to expose; never the API secret.
 
-### Auth (MSG91)
+### Email (Resend)
 
 | Key | Value |
 |-----|-------|
-| `MSG91_AUTH_KEY` | from MSG91 dashboard |
-| `MSG91_EMAIL_TEMPLATE_ID` | your approved template ID |
-| `MSG91_EMAIL_FROM` | sender address registered with MSG91 |
+| `RESEND_API_KEY` | API key from your Resend dashboard |
+| `RESEND_FROM_EMAIL` | Verified sender address (e.g. `noreply@your-domain.com`) |
+
+> Resend requires domain verification for production sends. For local testing the `onboarding@resend.dev` sandbox sender works but only emails the registered Resend account.
 
 ### Platform integrations
 
 | Key | Value | Notes |
 |-----|-------|-------|
-| `GITHUB_TOKEN` | classic PAT with `read:user`, `public_repo` | Strongly recommended — anonymous GraphQL is rate-limited |
-| `HUGGINGFACE_TOKEN` | read token | Optional |
+| `GITHUB_TOKEN` | Classic PAT (no scopes needed for public read) | Strongly recommended — anonymous GraphQL is 60 req/hour; authenticated is 5000 req/hour |
 
 ### Best practices for secrets
 
-- **Different secrets for dev vs prod.** Don't reuse the same `NEXTAUTH_SECRET` you use locally.
-- **MongoDB user per environment.** Production should have its own DB user.
+- **Different secrets for dev vs prod.** Don't reuse the same `AUTH_SECRET` you use locally.
+- **MongoDB user per environment.** Production should have its own DB user with scoped access.
 - **Rotate secrets** if they ever appear in a screenshot, log, or commit.
 
 ## Step 4 — Deploy
@@ -91,13 +106,15 @@ The `NEXT_PUBLIC_` prefix exposes the variable to the client. Only the upload pr
    - TypeScript error (run `npm run typecheck` locally first)
    - Memory limit (rare; bump in `vercel.json` if needed)
 
-## Step 5 — Set NEXTAUTH_URL
+## Step 5 — Set NEXT_PUBLIC_APP_URL
 
 Now that you have your Vercel URL (e.g. `pofolio-yourname.vercel.app`):
 
 1. Go to **Settings** → **Environment Variables**
-2. Find `NEXTAUTH_URL` and edit it to `https://pofolio-yourname.vercel.app`
+2. Find `NEXT_PUBLIC_APP_URL` and edit it to `https://pofolio-yourname.vercel.app`
 3. Trigger a redeploy: **Deployments** → click the latest → **Redeploy** → confirm
+
+If you registered OAuth apps with a placeholder redirect URL, update them now too: each provider needs `https://pofolio-yourname.vercel.app/api/auth/callback/<provider>` as an authorized redirect URL.
 
 ## Step 6 — Custom domain (optional)
 
@@ -108,7 +125,7 @@ Now that you have your Vercel URL (e.g. `pofolio-yourname.vercel.app`):
    - For a subdomain (`portfolio.example.com`): a `CNAME` record pointing to `cname.vercel-dns.com`
 4. Wait for DNS propagation (usually < 1 hour)
 5. Vercel auto-provisions an SSL cert via Let's Encrypt
-6. Update `NEXTAUTH_URL` to the custom domain and redeploy
+6. Update `NEXT_PUBLIC_APP_URL` to the custom domain and redeploy. Also update your OAuth app redirect URLs to use the new domain.
 
 ## Step 7 — Production database setup
 
@@ -125,10 +142,11 @@ For most users, `0.0.0.0/0` with a strong user password is fine.
 Visit your deployment URL and check:
 
 - [ ] Landing page renders
-- [ ] Sign-in via email OTP works (check inbox → enter OTP → land on dashboard)
+- [ ] Sign-in works via at least one OAuth provider (Google or GitHub) — completes the round-trip and lands on the dashboard
 - [ ] Editor lets you create a portfolio
 - [ ] Cloudinary uploads work (try uploading a project image)
 - [ ] GitHub / LeetCode / Codeforces fetches return real data
+- [ ] Resend transactional emails arrive (test password reset if applicable)
 - [ ] Your test portfolio renders in all 6 templates
 
 ## Preview deployments — automatic for PRs
@@ -191,12 +209,14 @@ Pofolio doesn't lock you in; the codebase is standard Next.js.
 
 **Build fails with "Cannot find module '@/...'"** — TypeScript path aliases not resolved. Check `tsconfig.json` `paths` and `next.config.js` `webpack` config.
 
-**Auth callback returns 500** — Check `NEXTAUTH_URL` matches your deployed URL exactly (including `https://`).
+**Auth callback returns 500** — Check `NEXT_PUBLIC_APP_URL` matches your deployed URL exactly (including `https://`). Also check the OAuth provider's redirect URL list includes `https://your-app.vercel.app/api/auth/callback/<provider>`.
 
-**Cloudinary uploads fail with 401** — Upload preset is signed; needs to be unsigned for client-side uploads. Recreate as unsigned.
+**Cloudinary uploads fail with 401** — Verify all four Cloudinary env vars are set correctly in Vercel (matching values from your Cloudinary dashboard). The API secret must be the server-only one, not exposed via `NEXT_PUBLIC_`.
+
+**Resend emails not arriving** — Check that `RESEND_FROM_EMAIL` is from a domain you've verified with Resend (Settings → Domains). Unverified domains only deliver to the Resend account holder.
 
 **Database connection times out** — Atlas IP allowlist. Add `0.0.0.0/0` or set up Vercel-Atlas integration.
 
-**Site loads but data is missing** — Check Vercel **Functions** logs for errors during data fetching. Often a missing platform API token.
+**Site loads but data is missing** — Check Vercel **Functions** logs for errors during data fetching. Often a missing `GITHUB_TOKEN` (anonymous rate limit hit).
 
 Open a GitHub issue with the failing build log if you're stuck.

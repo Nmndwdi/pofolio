@@ -31,7 +31,7 @@ Pofolio is open-source so anyone can fork, self-host, contribute new templates, 
 
 - **Multi-template rendering** — one data model, many visual interpretations
 - **Auto-fetched activity** from GitHub, LeetCode, Codeforces, Dev.to, and Hugging Face — heatmaps, ratings, contributions, articles
-- **Email OTP auth** via MSG91 (SMS DLT in progress) on top of NextAuth v5
+- **Email + OAuth auth** via NextAuth v5 (Google, GitHub) with Resend for transactional email
 - **Cloudinary media** for project hero images, galleries, and resumes
 - **Resume + custom files** with public download links
 - **Custom links + socials** with optional descriptions
@@ -59,13 +59,14 @@ Each template renders from the same `LayoutData` shape defined in [`src/componen
 - npm (or pnpm / yarn — adapt commands accordingly)
 - MongoDB Atlas account (or local MongoDB)
 - Cloudinary account
-- (Optional, for full features) MSG91 account for email OTP
+- Resend account (for transactional email)
+- (Optional) Google or GitHub OAuth app credentials for social sign-in
 
 ### Local setup
 
 ```bash
 # 1. Clone
-git clone https://github.com/Nmndwdi/pofolio.git
+git clone https://github.com/<your-handle>/pofolio.git
 cd pofolio
 
 # 2. Install
@@ -94,41 +95,52 @@ npm run typecheck    # TypeScript strict check
 
 ## Environment variables
 
-Copy `.env.example` to `.env.local` and populate. Required unless marked optional.
+Copy `.env.example` to `.env.local` and fill in real values. Required unless marked optional.
 
 ### Core
 
 | Variable | Purpose |
 |----------|---------|
-| `MONGODB_URI` | MongoDB connection string (Atlas or self-hosted) |
-| `NEXTAUTH_URL` | Full URL of the app (`http://localhost:3000` in dev) |
-| `NEXTAUTH_SECRET` | Random secret for NextAuth sessions (`openssl rand -base64 32`) |
+| `MONGODB_URI` | MongoDB connection string. Atlas free tier (M0) is fine. |
+| `NEXT_PUBLIC_APP_URL` | Absolute base URL of the app — `http://localhost:3000` in dev, your Vercel or custom domain URL in production. Used for OG image URLs, email links, and QR target. |
+| `AUTH_SECRET` | NextAuth v5 session signing secret. Generate with `openssl rand -base64 32` |
 
-### Cloudinary
+### OAuth providers (optional)
 
-| Variable | Purpose |
-|----------|---------|
-| `CLOUDINARY_CLOUD_NAME` | Your Cloudinary cloud name |
-| `CLOUDINARY_API_KEY` | API key |
-| `CLOUDINARY_API_SECRET` | API secret |
-| `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | Unsigned upload preset name |
-
-### Auth (Email OTP)
+Both providers are optional — leave blank to disable that sign-in method. Get credentials from each platform's developer console.
 
 | Variable | Purpose |
 |----------|---------|
-| `MSG91_AUTH_KEY` | MSG91 API auth key |
-| `MSG91_EMAIL_TEMPLATE_ID` | Approved email OTP template ID |
-| `MSG91_EMAIL_FROM` | Sender address registered with MSG91 |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth — [console.cloud.google.com](https://console.cloud.google.com) → Credentials → OAuth client |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth — [github.com/settings/developers](https://github.com/settings/developers) → New OAuth App |
 
-### Platform integrations (optional but recommended)
+### Cloudinary (media uploads + delivery)
+
+Sign up free at [cloudinary.com](https://cloudinary.com); dashboard shows all four values.
 
 | Variable | Purpose |
 |----------|---------|
-| `GITHUB_TOKEN` | Personal access token for GitHub GraphQL (lifts rate limits) |
-| `HUGGINGFACE_TOKEN` | Read token for Hugging Face Hub API |
+| `CLOUDINARY_CLOUD_NAME` | Your cloud name (server-side) |
+| `CLOUDINARY_API_KEY` | API key (server-side) |
+| `CLOUDINARY_API_SECRET` | API secret — **never expose; server-only** |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | Same value as `CLOUDINARY_CLOUD_NAME`, exposed to the browser so it can build delivery URLs for avatars and project images. Safe — cloud names are public anyway. |
 
-> **Never commit `.env.local`.** It's already in `.gitignore`. Anything secret stays out of the repo; share via `.env.example` (placeholders only).
+### Email (Resend)
+
+Used for transactional email (password reset etc.).
+
+| Variable | Purpose |
+|----------|---------|
+| `RESEND_API_KEY` | Resend API key — [resend.com](https://resend.com), free tier 3000 emails/month |
+| `RESEND_FROM_EMAIL` | Sender address — must be from a domain verified with Resend |
+
+### Platform integrations
+
+| Variable | Purpose |
+|----------|---------|
+| `GITHUB_TOKEN` | Optional but recommended. Personal access token (no scopes needed for public read). Without it you get 60 req/hour shared across all users; with it 5000/hour per token. Create at [github.com/settings/tokens](https://github.com/settings/tokens). |
+
+> **Never commit `.env.local`.** It's already in `.gitignore`. Anything secret stays out of the repo; share only `.env.example` (placeholders only).
 
 ## Tech stack
 
@@ -137,7 +149,7 @@ Copy `.env.example` to `.env.local` and populate. Required unless marked optiona
 - **UI:** React 19, CSS Modules
 - **3D / animation:** Three.js (spatial-walk), GSAP + ScrollTrigger (cinematic)
 - **Database:** MongoDB via Mongoose 8
-- **Auth:** NextAuth v5 (beta) with MSG91 Email OTP
+- **Auth:** NextAuth v5 with Google + GitHub OAuth, Resend for transactional email
 - **Media:** Cloudinary
 - **Validation:** Zod
 
@@ -168,15 +180,15 @@ pofolio/
 
 ## Data sources
 
-Pofolio pulls activity from these platforms when the user provides a handle:
+Pofolio pulls activity from these platforms when the user provides a handle. Most are public APIs that need no authentication — only GitHub benefits from a personal access token.
 
-- **GitHub** — repos, languages, contributions heatmap (GraphQL API)
+- **GitHub** — repos, languages, contributions heatmap (GraphQL API; `GITHUB_TOKEN` recommended for rate limits)
 - **LeetCode** — problems solved, ratings, contest history, submissions heatmap
-- **Codeforces** — rating history, recent contests, submissions heatmap (official API)
+- **Codeforces** — rating history, recent contests, submissions heatmap (official public API)
 - **Dev.to** — published articles
 - **Hugging Face** — public models and datasets
 
-Fetchers live in `src/lib/integrations/` (or similar — adjust if your structure differs). They're called server-side; the resulting data is stored on the user's portfolio document and refreshed periodically.
+Fetchers live in `src/lib/` (or `src/lib/integrations/` depending on layout). They run server-side; the resulting data is stored on the user's portfolio document and refreshed periodically.
 
 ## Adding a new template
 
@@ -227,7 +239,7 @@ Pofolio is released under the [MIT License](LICENSE). You can use it commerciall
 
 ## Acknowledgments
 
-Built by [Naman](https://github.com/Nmndwdi) and contributors.
+Built by [Naman](https://github.com/<your-handle>) and contributors.
 
 Powered by:
 - [Next.js](https://nextjs.org)

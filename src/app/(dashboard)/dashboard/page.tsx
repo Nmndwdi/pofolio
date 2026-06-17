@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   }
 
   const publicPath = `/p/${profile.slug}`;
-  const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}${publicPath}`;
+  const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://pofoliox.vercel.app/"}${publicPath}`;
 
   // View stats for the analytics card.
   const viewStats = await getViewStats(String(profile._id));
