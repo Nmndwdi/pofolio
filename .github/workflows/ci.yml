@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR / branch when a new push lands.
+# Saves Actions minutes and avoids reviewing stale results.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Build with placeholder env vars so Next.js can complete the build.
+      # We're not actually connecting to services — just verifying the bundle compiles.
+      - name: Build
+        env:
+          MONGODB_URI: "mongodb://localhost:27017/ci-placeholder"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXTAUTH_SECRET: "ci-placeholder-secret-not-used"
+          CLOUDINARY_CLOUD_NAME: "ci-placeholder"
+          CLOUDINARY_API_KEY: "ci-placeholder"
+          CLOUDINARY_API_SECRET: "ci-placeholder"
+          NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: "ci-placeholder"
+        run: npm run build

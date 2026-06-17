@@ -1,0 +1,31 @@
+# CODEOWNERS — auto-request reviewers for matching paths.
+#
+# Syntax: <pattern> <@github-handle> [<@github-handle> ...]
+# More: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
+#
+# IMPORTANT: replace @your-handle below with your actual GitHub username.
+# CODEOWNERS only works when paired with the "Require review from Code Owners"
+# branch protection rule on `main`.
+
+# Default — every change requires owner review
+*                                @your-handle
+
+# Templates — owner reviews structural template changes
+/src/templates/                  @your-handle
+
+# Data layer / types — extra-sensitive, owner reviews
+/src/components/layouts/types.ts @your-handle
+/src/models/                     @your-handle
+/src/lib/                        @your-handle
+
+# CI / build config — owner reviews
+/.github/                        @your-handle
+/package.json                    @your-handle
+/package-lock.json               @your-handle
+/tsconfig.json                   @your-handle
+/next.config.*                   @your-handle
+
+# Docs — owner reviews to keep voice consistent
+/README.md                       @your-handle
+/CONTRIBUTING.md                 @your-handle
+/docs/                           @your-handle
