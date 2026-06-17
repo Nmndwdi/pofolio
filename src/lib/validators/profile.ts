@@ -50,6 +50,8 @@ export const layoutIdSchema = z.enum([
   "brutalist", // neo-brutalism — massive type, hard shadows, hazard yellow
   "press",     // editorial newspaper — serif masthead, oxblood-on-cream
   "bento",
+  "spatial-walk",
+  "cinematic",
 ]);
 export type LayoutId = z.infer<typeof layoutIdSchema>;
 

@@ -1,0 +1,1240 @@
+/*
+ * Spatial-walk styles — Solo Leveling holographic status windows
+ * floating over a daylight landscape.
+ *
+ * Aesthetic vocabulary:
+ *   - Cards are sharp-cornered (no border-radius), dark interior with
+ *     bright violet/cyan borders and a soft outer glow
+ *   - Each card has a "STATUS WINDOW" header bar with monospaced caps
+ *   - 4 corner L-brackets drawn via background-gradients for the
+ *     iconic "system UI / targeting reticle" feel
+ *   - Inner content uses monospaced and light-weight grotesk typography
+ *     mixed deliberately — like a game HUD that's been polished into a
+ *     beautiful UI
+ *
+ * Color palette (Solo Leveling signature):
+ *   - --sl-aura: #6b5fff (the primary magic-aura violet)
+ *   - --sl-aura-bright: #a698ff (highlight)
+ *   - --sl-aura-soft: rgba(107, 95, 255, 0.4)
+ *   - --sl-card-bg: rgba(8, 10, 22, 0.86)
+ *   - --sl-card-edge: #7b6dff (bright border line)
+ *   - --sl-text: #e8e6ff (slight violet tint)
+ *   - --sl-text-dim: #a698c8
+ *   - --sl-online: #6dd49a (status indicators)
+ *
+ * Modal portal colors are hardcoded (lesson learned from prior builds).
+ */
+
+.root {
+  --sl-aura: #6b5fff;
+  --sl-aura-bright: #a698ff;
+  --sl-card-bg: rgba(8, 10, 22, 0.86);
+  --sl-card-edge: #7b6dff;
+  --sl-text: #e8e6ff;
+  --sl-text-dim: #a698c8;
+  --sl-text-faint: #6e6488;
+  --sl-online: #6dd49a;
+  --sl-warning: #ffb86b;
+  --sl-rule: rgba(123, 109, 255, 0.22);
+
+  --sl-sans: var(--font-sans), "Inter Display", "Geist", system-ui,
+    -apple-system, sans-serif;
+  --sl-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  position: relative;
+  min-height: 100vh;
+  background: #b8d0e8; /* matches Three.js clear color, prevents flash */
+  color: var(--sl-text);
+  font-family: var(--sl-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ─── WebGL canvas wrapper ──────────────────────────────────── */
+.sceneFixed {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.sceneFixed canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ─── Scroll track ──────────────────────────────────────────── */
+.scrollTrack {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* ─── Overlay layer ─────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: minmax(20px, 1fr) minmax(0, 1100px) minmax(20px, 1fr);
+  grid-template-rows: 56px 1fr 56px;
+}
+.overlayInner {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ─── HUD ───────────────────────────────────────────────────── */
+.hud {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  /* Dark text since daytime scene is bright */
+  color: #2a3045;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.hudL {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hudR {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hudDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sl-aura);
+  box-shadow: 0 0 8px var(--sl-aura);
+}
+.hudProgress {
+  width: 100px;
+  height: 2px;
+  background: rgba(42, 48, 69, 0.2);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.hudProgressFill {
+  height: 100%;
+  background: var(--sl-aura);
+  will-change: width;
+}
+
+.scrollHint {
+  grid-column: 2;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: #2a3045;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  opacity: 0;
+  transition: opacity 600ms;
+  animation: slBob 2s ease-in-out infinite;
+}
+.scrollHint[data-visible="true"] {
+  opacity: 0.7;
+}
+@keyframes slBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+/* ─── Card base — the Solo Leveling status window ───────────── */
+.card {
+  position: absolute;
+  pointer-events: none;
+  background: var(--sl-card-bg);
+  padding: 22px 26px 24px;
+  /*
+   * Four corner L-brackets drawn via four background-gradients. Each
+   * bracket is a horizontal stub + vertical stub. The "brackets" are
+   * positioned at the four corners; the inner area shows the card bg
+   * (translucent dark) through the gradient gaps.
+   */
+  background-image:
+    /* top-left horizontal */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* top-left vertical */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* top-right horizontal */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* top-right vertical */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* bottom-left horizontal */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* bottom-left vertical */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* bottom-right horizontal */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* bottom-right vertical */
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    /* inner translucent fill */
+    linear-gradient(var(--sl-card-bg), var(--sl-card-bg));
+  background-size:
+    18px 1.5px, 1.5px 18px,
+    18px 1.5px, 1.5px 18px,
+    18px 1.5px, 1.5px 18px,
+    18px 1.5px, 1.5px 18px,
+    100% 100%;
+  background-position:
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right,
+    0 0;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 18px rgba(123, 109, 255, 0.32));
+  /* Subtle inset highlight at top-left for the "screen lit from above" feel */
+  box-shadow: inset 0 1px 0 rgba(166, 152, 255, 0.08);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 360ms cubic-bezier(0.2, 0.7, 0.2, 1),
+              transform 360ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Card status header bar — the "[STATUS WINDOW]" strip at top */
+.cardSysBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -22px -26px 14px;
+  padding: 8px 26px;
+  background: linear-gradient(
+    90deg,
+    rgba(123, 109, 255, 0.18) 0%,
+    rgba(123, 109, 255, 0.06) 100%
+  );
+  border-bottom: 1px solid var(--sl-rule);
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: var(--sl-aura-bright);
+}
+.cardSysBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cardSysBarLeft::before {
+  content: "[";
+  color: var(--sl-text-faint);
+}
+.cardSysBarLeft::after {
+  content: "]";
+  color: var(--sl-text-faint);
+}
+.cardSysBarRight {
+  color: var(--sl-text-faint);
+  font-size: 9px;
+}
+
+.cardActive { pointer-events: auto; }
+
+/* Positioning */
+.cardCenter {
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+}
+.cardCenterTop {
+  top: 14%;
+  left: 50%;
+}
+.cardLeft {
+  top: 50%;
+  left: 4%;
+}
+.cardRight {
+  top: 50%;
+  right: 4%;
+}
+.cardBottomBand {
+  bottom: 8%;
+  left: 50%;
+  width: min(94%, 760px);
+}
+
+/* ─── Identity (PLAYER) ─────────────────────────────────────── */
+.cardIdentity {
+  background: transparent;
+  background-image: none;
+  filter: none;
+  box-shadow: none;
+  padding: 0;
+  text-align: center;
+  width: min(92%, 740px);
+}
+.identityKicker {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  color: var(--sl-aura);
+  margin-bottom: 24px;
+  text-shadow: 0 0 12px rgba(123, 109, 255, 0.5);
+}
+.identityName {
+  font-size: clamp(44px, 8vw, 120px);
+  font-weight: 200;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+  margin: 0 0 18px;
+  color: #1a2030;
+  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.6),
+               0 0 32px rgba(255, 255, 255, 0.4);
+}
+.identityHeadline {
+  font-size: clamp(14px, 1.4vw, 17px);
+  color: #2a3045;
+  max-width: 44ch;
+  margin: 0 auto 24px;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.4);
+}
+.identityMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--sl-card-bg);
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--sl-aura-bright);
+  /* Sharp corners + L-brackets */
+  background-image:
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-bg), var(--sl-card-bg));
+  background-size:
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    100% 100%;
+  background-position:
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right,
+    0 0;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 14px rgba(123, 109, 255, 0.4));
+}
+.identityDot {
+  width: 6px;
+  height: 6px;
+  background: var(--sl-online);
+  box-shadow: 0 0 8px var(--sl-online);
+}
+
+/* ─── Common card inner blocks ──────────────────────────────── */
+.kicker {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--sl-aura-bright);
+  margin-bottom: 8px;
+}
+.title {
+  font-size: clamp(20px, 2.3vw, 28px);
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0 0 14px;
+  color: var(--sl-text);
+}
+.titleMid {
+  font-size: clamp(18px, 1.9vw, 22px);
+  font-weight: 300;
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+  margin: 0 0 8px;
+  color: var(--sl-text);
+}
+.body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--sl-text-dim);
+  margin: 0;
+  font-weight: 300;
+}
+.body p { margin: 0 0 10px; }
+.body p:last-child { margin-bottom: 0; }
+
+/* ─── About card ────────────────────────────────────────────── */
+.cardAbout {
+  width: min(94%, 540px);
+  transform: translate(-50%, -50%) translateY(20px);
+}
+
+/* ─── Experience / education markers ────────────────────────── */
+.cardMarker {
+  width: min(88%, 400px);
+  transform: translate(0, -50%) translateY(20px);
+}
+.markerDate {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--sl-aura-bright);
+  margin-bottom: 6px;
+}
+.markerHead {
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  margin: 0 0 2px;
+  color: var(--sl-text);
+}
+.markerSub {
+  font-size: 13px;
+  color: var(--sl-text-dim);
+  margin: 0;
+  font-weight: 300;
+}
+.markerBody {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--sl-text-dim);
+  font-weight: 300;
+}
+.markerSkills {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.markerSkill {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  background: rgba(123, 109, 255, 0.12);
+  border: 1px solid rgba(123, 109, 255, 0.3);
+  color: var(--sl-text);
+}
+
+/* ─── Skills card ───────────────────────────────────────────── */
+.cardSkills {
+  width: min(94%, 640px);
+  transform: translate(-50%, -50%) translateY(20px);
+}
+.skillsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.skillsListItem {
+  font-family: var(--sl-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  background: rgba(123, 109, 255, 0.12);
+  border: 1px solid rgba(123, 109, 255, 0.32);
+  color: var(--sl-text);
+}
+.skillGroup { margin-top: 14px; }
+.skillGroup:first-child { margin-top: 0; }
+.skillGroupName {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--sl-aura-bright);
+  margin-bottom: 8px;
+}
+.skillGroupDesc {
+  font-size: 12px;
+  color: var(--sl-text-dim);
+  margin: 0 0 8px;
+  font-weight: 300;
+}
+
+/* ─── Project cards ─────────────────────────────────────────── */
+.cardProject {
+  width: min(94%, 560px);
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) translateY(20px);
+}
+.cardProject .cardSysBar {
+  margin: 0;
+}
+.projectHero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #0a0e1a;
+  filter: contrast(1.05) saturate(0.95);
+}
+.projectBody {
+  padding: 20px 26px 22px;
+}
+.projectTitle {
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  margin: 0 0 8px;
+  color: var(--sl-text);
+}
+.projectDesc {
+  font-size: 13.5px;
+  color: var(--sl-text-dim);
+  margin: 0 0 12px;
+  font-weight: 300;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.55;
+}
+.projectMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.projectTech {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  background: rgba(123, 109, 255, 0.1);
+  border: 1px solid rgba(123, 109, 255, 0.25);
+  color: var(--sl-text-dim);
+}
+.projectOpenHint {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--sl-aura-bright);
+  margin-top: 12px;
+}
+
+/* ─── Stats / platform cards ────────────────────────────────── */
+.cardStats {
+  width: min(94%, 600px);
+  transform: translate(-50%, -50%) translateY(20px);
+}
+.statRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.statHandle {
+  font-family: var(--sl-mono);
+  font-size: 11px;
+  color: var(--sl-aura-bright);
+  text-decoration: none;
+  pointer-events: auto;
+}
+.statHandle:hover { color: var(--sl-aura); }
+.statRealName {
+  font-size: 13px;
+  color: var(--sl-text-dim);
+  font-style: italic;
+  font-weight: 300;
+}
+.statCountry {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sl-text-faint);
+}
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+.statCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-top: 1px solid var(--sl-rule);
+}
+.statValue {
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.018em;
+  line-height: 1;
+  color: var(--sl-text);
+}
+.statLabel {
+  font-family: var(--sl-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sl-text-faint);
+  margin-top: 4px;
+}
+@media (max-width: 768px) {
+  .statGrid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Difficulty bars (LeetCode) */
+.diffBars {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.diffBar {
+  display: grid;
+  grid-template-columns: 56px 1fr 70px;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sl-mono);
+  font-size: 10.5px;
+}
+.diffBarLabel {
+  text-transform: uppercase;
+  color: var(--sl-text-dim);
+  letter-spacing: 0.1em;
+}
+.diffBarTrack {
+  position: relative;
+  height: 7px;
+  background: rgba(123, 109, 255, 0.1);
+  overflow: hidden;
+}
+.diffBarFill {
+  position: absolute;
+  inset: 0;
+}
+.diffBarFillEasy { background: var(--sl-online); box-shadow: 0 0 8px rgba(109, 212, 154, 0.5); }
+.diffBarFillMedium { background: var(--sl-warning); box-shadow: 0 0 8px rgba(255, 184, 107, 0.5); }
+.diffBarFillHard { background: #ff7b7b; box-shadow: 0 0 8px rgba(255, 123, 123, 0.5); }
+.diffBarCount { color: var(--sl-text); text-align: right; font-size: 10.5px; }
+
+/* Constellation heatmap */
+.constellation {
+  display: block;
+  width: 100%;
+  height: 56px;
+  margin-top: 14px;
+}
+
+/* ─── Activity heatmap (proper grid, GitHub-style) ──────────── */
+.heatmap {
+  margin-top: 10px;
+}
+.heatmapHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.heatmapTitle {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--sl-aura-bright);
+}
+.heatmapMeta {
+  font-family: var(--sl-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--sl-text-faint);
+}
+.heatmapGrid {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Year filter tabs */
+.yearTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.yearTab {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(123, 109, 255, 0.22);
+  color: var(--sl-text-dim);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 160ms, color 160ms, border-color 160ms;
+}
+.yearTab:hover {
+  background: rgba(123, 109, 255, 0.1);
+  color: var(--sl-text);
+}
+.yearTabActive {
+  background: rgba(123, 109, 255, 0.22);
+  border-color: var(--sl-aura);
+  color: var(--sl-text);
+}
+
+/* ─── Half-width platform cards (paired side-by-side) ───────── */
+.cardStatsHalf {
+  width: min(45%, 460px);
+  /* Constrain height to prevent vertical overflow at typical viewports */
+  max-height: 78vh;
+  overflow: hidden;
+}
+.cardStatsHalf .cardSysBar {
+  /* Header pinned at top */
+}
+.cardStatsScroll {
+  /* Body region — if content still overflows the cap, scroll within
+   * the card. This is the "scrollable as last resort" safety net. */
+  max-height: calc(78vh - 60px);
+  overflow-y: auto;
+  margin: 0 -8px;
+  padding: 0 8px;
+  /* Slim violet scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123, 109, 255, 0.4) transparent;
+}
+.cardStatsScroll::-webkit-scrollbar { width: 4px; }
+.cardStatsScroll::-webkit-scrollbar-track { background: transparent; }
+.cardStatsScroll::-webkit-scrollbar-thumb {
+  background: rgba(123, 109, 255, 0.35);
+}
+
+/* Paired card positioning — left + right at same vertical center */
+.pairedLeft {
+  top: 50%;
+  left: 3%;
+  right: auto;
+}
+.pairedRight {
+  top: 50%;
+  right: 3%;
+  left: auto;
+}
+
+/* Sparkline (rating) */
+.sparkline {
+  display: block;
+  width: 100%;
+  height: 56px;
+  margin-top: 12px;
+}
+
+/* Top repos / languages list (GitHub) */
+.miniSection {
+  margin-top: 14px;
+}
+.miniSectionHead {
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--sl-aura-bright);
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--sl-rule);
+}
+.topReposList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.topRepoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  text-decoration: none;
+  color: inherit;
+  pointer-events: auto;
+  transition: padding-left 200ms;
+}
+.topRepoItem:hover { padding-left: 6px; }
+.topRepoName {
+  font-family: var(--sl-mono);
+  font-size: 12px;
+  color: var(--sl-text);
+}
+.topRepoStars {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  color: var(--sl-text-faint);
+  white-space: nowrap;
+}
+.languageBars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.langBar {
+  display: grid;
+  grid-template-columns: 100px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sl-mono);
+  font-size: 10px;
+}
+.langBarName {
+  color: var(--sl-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.langBarTrack {
+  position: relative;
+  height: 5px;
+  background: rgba(123, 109, 255, 0.1);
+  overflow: hidden;
+}
+.langBarFill {
+  position: absolute;
+  inset: 0;
+  background: var(--sl-aura);
+  box-shadow: 0 0 6px rgba(123, 109, 255, 0.5);
+}
+.langBarCount {
+  color: var(--sl-text-dim);
+  text-align: right;
+}
+
+/* Recent contests (Codeforces) */
+.contestsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.contestItem {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sl-rule);
+  font-size: 12px;
+}
+.contestItem:last-child { border-bottom: 0; }
+.contestName {
+  color: var(--sl-text);
+  font-weight: 300;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contestRank {
+  font-family: var(--sl-mono);
+  font-size: 10.5px;
+  color: var(--sl-text-dim);
+}
+.contestDelta {
+  font-family: var(--sl-mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.deltaPos { color: var(--sl-online); }
+.deltaNeg { color: #ff7b7b; }
+
+/* Shelf — for writing, ml, links, files, socials */
+.shelf {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shelfItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sl-rule);
+  text-decoration: none;
+  color: inherit;
+  pointer-events: auto;
+  transition: padding-left 200ms;
+}
+.shelfItem:last-child { border-bottom: 0; }
+.shelfItem:hover { padding-left: 6px; }
+.shelfItemHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.shelfItemTitle {
+  font-size: 13.5px;
+  color: var(--sl-text);
+  line-height: 1.3;
+  font-weight: 300;
+}
+.shelfItemMeta {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sl-text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.shelfItemDesc {
+  font-size: 11.5px;
+  color: var(--sl-text-dim);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Horizon ───────────────────────────────────────────────── */
+.cardHorizon {
+  width: min(86%, 480px);
+  background: transparent;
+  background-image: none;
+  filter: none;
+  box-shadow: none;
+  padding: 0;
+  text-align: center;
+  transform: translate(-50%, -50%) translateY(20px);
+}
+.horizonText {
+  font-family: var(--sl-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #1a2030;
+  margin: 0 0 16px;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.5);
+}
+.horizonLink {
+  display: inline-block;
+  font-family: var(--sl-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--sl-text);
+  text-decoration: none;
+  pointer-events: auto;
+  padding: 10px 22px;
+  background: var(--sl-card-bg);
+  /* L-brackets */
+  background-image:
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-edge), var(--sl-card-edge)),
+    linear-gradient(var(--sl-card-bg), var(--sl-card-bg));
+  background-size:
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    100% 100%;
+  background-position:
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right,
+    0 0;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 14px rgba(123, 109, 255, 0.4));
+  transition: color 200ms;
+}
+.horizonLink:hover { color: var(--sl-aura-bright); }
+
+/* ─── Mobile ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .cardLeft, .cardRight {
+    left: 50%;
+    right: auto;
+    width: 92%;
+  }
+  .cardCenterTop { top: 12%; }
+  .statGrid { grid-template-columns: 1fr 1fr; }
+
+  /* Paired cards stack vertically on mobile — primary up top, secondary
+   * below. They share the same scroll window so both visible at once.
+   * Each takes ~40% of viewport height. */
+  .pairedLeft {
+    top: 26%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%) !important;
+  }
+  .pairedRight {
+    top: 70%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%) !important;
+  }
+  .cardStatsHalf {
+    width: 92%;
+    max-height: 38vh;
+  }
+  .cardStatsScroll {
+    max-height: calc(38vh - 50px);
+  }
+}
+
+/* ─── Project modal (portal — hardcoded colors) ─────────────── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 22, 0.86);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px;
+  overflow-y: auto;
+  isolation: isolate;
+  animation: slModalFadeIn 200ms ease-out;
+}
+@keyframes slModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.modalShell {
+  background: #0a0c1a;
+  color: #e8e6ff;
+  font-family: var(--font-sans), "Inter Display", "Geist", system-ui, -apple-system, sans-serif;
+  width: min(100%, 880px);
+  position: relative;
+  animation: slModalRise 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* L-bracket border + glow */
+  background-image:
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#7b6dff, #7b6dff),
+    linear-gradient(#0a0c1a, #0a0c1a);
+  background-size:
+    32px 2px, 2px 32px,
+    32px 2px, 2px 32px,
+    32px 2px, 2px 32px,
+    32px 2px, 2px 32px,
+    100% 100%;
+  background-position:
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right,
+    0 0;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 24px rgba(123, 109, 255, 0.4));
+}
+@keyframes slModalRise {
+  from { opacity: 0; transform: translateY(20px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modalClose {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: rgba(123, 109, 255, 0.15);
+  color: #e8e6ff;
+  border: 1px solid rgba(123, 109, 255, 0.4);
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  z-index: 2;
+  transition: background 160ms, border-color 160ms;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+}
+.modalClose:hover {
+  background: rgba(123, 109, 255, 0.28);
+  border-color: rgba(123, 109, 255, 0.6);
+}
+.modalHero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #0a0c1a;
+}
+.modalContent { padding: 34px 38px 38px; }
+.modalKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #a698ff;
+  margin-bottom: 8px;
+}
+.modalTitle {
+  font-size: clamp(22px, 3vw, 34px);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 16px;
+  color: #e8e6ff;
+}
+.modalDesc {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #a698c8;
+  margin: 0 0 22px;
+  white-space: pre-line;
+  font-weight: 300;
+}
+.modalSection { margin-top: 24px; }
+.modalSectionHead {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #a698ff;
+  margin: 0 0 10px;
+}
+.modalChipRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.modalChip {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  padding: 4px 9px;
+  background: rgba(123, 109, 255, 0.12);
+  color: #e8e6ff;
+  border: 1px solid rgba(123, 109, 255, 0.3);
+}
+.modalLinkRow { display: flex; flex-wrap: wrap; gap: 10px; }
+.modalLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(123, 109, 255, 0.14);
+  border: 1px solid rgba(123, 109, 255, 0.4);
+  color: #e8e6ff;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.05em;
+  transition: background 160ms;
+}
+.modalLink:hover { background: rgba(123, 109, 255, 0.24); }
+.modalGallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.modalGalleryImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #0a0c1a;
+}
+
+/* ─── Reduced motion ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .sceneFixed { display: none; }
+  .scrollTrack { height: auto !important; }
+  .overlay {
+    position: relative;
+    inset: auto;
+    display: block;
+    z-index: auto;
+  }
+  .overlayInner { height: auto; }
+  .hud, .scrollHint { display: none; }
+  .card {
+    position: relative !important;
+    top: auto !important; left: auto !important; right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    margin: 24px auto;
+    width: min(94%, 640px);
+  }
+  .root { background: #b8d0e8; padding: 32px 0 64px; }
+}
+
+/* ─── Print ─────────────────────────────────────────────────── */
+@media print {
+  .sceneFixed, .hud, .scrollHint { display: none !important; }
+  .root { background: #fff !important; color: #111 !important; }
+  .overlay { position: relative !important; display: block; }
+  .overlayInner { height: auto; }
+  .scrollTrack { height: auto !important; }
+  .card {
+    position: relative !important;
+    top: auto !important; left: auto !important; right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    background: #fff !important;
+    background-image: none !important;
+    color: #111 !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    filter: none !important;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+  .root, .root *, .root *::before, .root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

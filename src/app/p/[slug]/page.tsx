@@ -13,6 +13,8 @@ import { TerminalTemplate } from "@/templates/terminal";
 import { BrutalistTemplate } from "@/templates/brutalist";
 import { PressTemplate } from "@/templates/press";
 import { BentoTemplate } from "@/templates/bento";
+import { SpatialWalkTemplate } from "@/templates/spatial-walk";
+import { CinematicTemplate } from "@/templates/cinematic";
 import type { LayoutData } from "@/components/layouts/types";
 
 /*
@@ -163,5 +165,13 @@ function LayoutRenderer({
     case "bento":
       // Bento OS — vibrant gradient desktop with draggable frosted tiles.
       return <BentoTemplate data={data} />;
+    case "spatial-walk":
+      // Spatial-walk — scroll-driven forward walk through a nighttime
+      // scene; sections are signposts/stones along a path.
+      return <SpatialWalkTemplate data={data} />;
+    case "cinematic":
+      // Cinematic — scroll-jacked tour with varied transitions (pan-zoom,
+      // lateral push, circular reveal, color match-cut, diagonal wipe).
+      return <CinematicTemplate data={data} />;
   }
 }

@@ -1,0 +1,931 @@
+/*
+ * Cinematic template — choreographed scroll-jacked sequence.
+ *
+ * Structure:
+ *   - Tall scroll track drives scroll length
+ *   - Stage is pinned (fixed full-viewport) during the entire show
+ *   - All staged elements live inside the stage, absolutely positioned
+ *   - GSAP timeline tweens them through specific keyframes as scroll
+ *     progresses; this CSS only sets BASE styles, not transitions
+ *
+ * Aesthetic:
+ *   - Dark slate background (#070912) with subtle radial vignette
+ *   - Razor-thin grotesque typography (font-weight 200-300)
+ *   - Cool violet/cyan accents (#9fb0ff, #b8a8ff)
+ *   - Sharp corners, minimal borders, drop-shadow glows on key cards
+ *   - Content is BIG — meant to be felt, not just read
+ */
+
+.root {
+  position: relative;
+  background: #070912;
+  color: #e8ecf5;
+  font-family: var(--font-sans), "Inter Display", "Geist", system-ui,
+    -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Tall scroll track — provides scroll length only.
+ * NOTE: do NOT set pointer-events:none here. That was disabling clicks
+ * on everything inside (project cards couldn't open the modal). Scroll
+ * events use a different mechanism and aren't affected by pointer-events. */
+.track {
+  position: relative;
+  width: 100%;
+}
+
+/* Pinned stage — what stays visible during the show */
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 50%, #0d1224 0%, #070912 70%),
+    #070912;
+}
+
+/* Vignette overlay */
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 95% 75% at 50% 50%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── HUD ───────────────────────────────────────────────────── */
+.hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px clamp(20px, 4vw, 48px);
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: rgba(232, 236, 245, 0.45);
+  pointer-events: none;
+}
+.hudL { display: flex; align-items: center; gap: 12px; }
+.hudR { display: flex; align-items: center; gap: 12px; }
+.hudDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9fb0ff;
+  box-shadow: 0 0 8px rgba(159, 176, 255, 0.7);
+}
+.hudPhase { color: #e8ecf5; font-weight: 500; }
+.hudProgress {
+  width: 100px;
+  height: 1px;
+  background: rgba(232, 236, 245, 0.18);
+}
+.hudProgressFill {
+  height: 100%;
+  background: #e8ecf5;
+  will-change: width;
+}
+
+/* ─── Stage element — base ──────────────────────────────────── */
+.stageEl {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  will-change: transform, opacity;
+}
+
+/* ─── Identity (Phase 1-2) ──────────────────────────────────── */
+.identity {
+  text-align: center;
+  width: min(90vw, 1200px);
+}
+.identityKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  color: #9fb0ff;
+  margin-bottom: 32px;
+}
+.identityName {
+  font-size: clamp(56px, 12vw, 180px);
+  font-weight: 100;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  margin: 0 0 28px;
+  color: #ffffff;
+  white-space: nowrap;
+  transform-origin: center center;
+}
+.identityHeadline {
+  font-size: clamp(15px, 1.6vw, 20px);
+  font-weight: 300;
+  color: rgba(232, 236, 245, 0.7);
+  max-width: 50ch;
+  margin: 0 auto 24px;
+}
+.identityBio {
+  font-size: clamp(13px, 1.3vw, 15px);
+  font-weight: 300;
+  color: rgba(232, 236, 245, 0.55);
+  max-width: 56ch;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+
+/* ─── Experience cards (Phase 3-4) ──────────────────────────── */
+/*
+ * Multiple cards arranged in a fan. Each card is absolutely positioned
+ * via inline CSS variables computed in JS based on index.
+ */
+.expCard {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(86vw, 400px);
+  padding: 22px 26px;
+  background: rgba(13, 18, 36, 0.88);
+  border: 1px solid rgba(159, 176, 255, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+.expCardDate {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #9fb0ff;
+  margin-bottom: 10px;
+}
+.expCardRole {
+  font-size: 19px;
+  font-weight: 300;
+  letter-spacing: -0.012em;
+  margin: 0 0 6px;
+  color: #ffffff;
+  line-height: 1.2;
+}
+.expCardCompany {
+  font-size: 14px;
+  color: rgba(232, 236, 245, 0.7);
+  margin: 0 0 10px;
+}
+.expCardSummary {
+  font-size: 13.5px;
+  color: rgba(232, 236, 245, 0.7);
+  line-height: 1.55;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.expCardSkills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+}
+.expCardSkill {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  background: rgba(159, 176, 255, 0.1);
+  border: 1px solid rgba(159, 176, 255, 0.22);
+  color: rgba(232, 236, 245, 0.85);
+}
+
+/* ─── Skills scene (Phase 4b) ──────────────────────────────── */
+.skillsScene {
+  width: min(90vw, 760px);
+  text-align: center;
+}
+.skillsKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #b8a8ff;
+  margin-bottom: 16px;
+}
+.skillsTitle {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 200;
+  letter-spacing: -0.025em;
+  margin: 0 0 36px;
+  color: #ffffff;
+  line-height: 1.1;
+}
+.skillsCloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.skillsTag {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 8px 16px;
+  background: rgba(159, 176, 255, 0.08);
+  border: 1px solid rgba(159, 176, 255, 0.28);
+  color: #ffffff;
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* ─── Links + Socials grid ──────────────────────────────────── */
+.linksSocialsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.linksSocialsGrid > div + div {
+  border-left: 1px solid rgba(159, 176, 255, 0.18);
+  padding-left: 32px;
+}
+@media (max-width: 640px) {
+  .linksSocialsGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .linksSocialsGrid > div + div {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid rgba(159, 176, 255, 0.18);
+    padding-top: 24px;
+  }
+}
+
+/* ─── Platform card (Phase 5+) ──────────────────────────────── */
+/*
+ * The MINI card for each platform (CF/LC/GH/Dev.to/HF). Small, shows
+ * only handle + title. Visible in the "rain" phase and the formation,
+ * grows when focused.
+ */
+.platformCard {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 220px;
+  padding: 24px 22px;
+  background: rgba(13, 18, 36, 0.92);
+  border: 1px solid rgba(159, 176, 255, 0.25);
+  text-align: center;
+  transform-origin: center;
+  will-change: transform, opacity;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.4));
+}
+.platformCardIcon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: rgba(159, 176, 255, 0.12);
+  border: 1px solid rgba(159, 176, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 300;
+  color: #9fb0ff;
+}
+.platformCardTitle {
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+  color: #ffffff;
+}
+.platformCardHandle {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: rgba(232, 236, 245, 0.55);
+  margin: 0;
+}
+
+/* ─── Platform info panel (full data on right) ────────────────
+ *
+ * Scrollable when content exceeds viewport. `overscroll-behavior: contain`
+ * prevents scroll-chaining — wheel events stay within the panel and
+ * don't bubble up to advance the ScrollTrigger timeline. Without this,
+ * the page would scroll past the platform reveal before the user could
+ * read the bottom of the panel.
+ */
+.platformInfo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(52vw, 580px);
+  max-height: 86vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 26px;
+  background: rgba(13, 18, 36, 0.94);
+  border: 1px solid rgba(159, 176, 255, 0.3);
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.5));
+  transform-origin: left center;
+  will-change: transform, opacity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(159, 176, 255, 0.3) transparent;
+  /* Default off — GSAP toggles to auto during reveal. Prevents the
+   * invisible (exited) panel from intercepting clicks on project cards
+   * underneath. */
+  pointer-events: none;
+}
+.platformInfo::-webkit-scrollbar { width: 4px; }
+.platformInfo::-webkit-scrollbar-thumb { background: rgba(159, 176, 255, 0.3); }
+.platformInfo::-webkit-scrollbar-track { background: transparent; }
+.platformInfoKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: #9fb0ff;
+  margin-bottom: 6px;
+}
+.platformInfoTitle {
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 14px;
+  color: #ffffff;
+}
+.platformInfoHandle {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: rgba(232, 236, 245, 0.65);
+  display: block;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+.platformInfoHandle:hover { color: #9fb0ff; }
+
+/* Stats grid inside platform info */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.statCell {
+  padding: 12px 14px;
+  background: rgba(159, 176, 255, 0.04);
+  border: 1px solid rgba(159, 176, 255, 0.12);
+}
+.statVal {
+  font-size: 24px;
+  font-weight: 200;
+  letter-spacing: -0.015em;
+  line-height: 1;
+  color: #ffffff;
+  margin-bottom: 5px;
+}
+.statLabel {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(232, 236, 245, 0.5);
+}
+
+.diffBars { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.diffBar {
+  display: grid;
+  grid-template-columns: 50px 1fr 70px;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+}
+.diffBarLabel { text-transform: uppercase; color: rgba(232, 236, 245, 0.6); letter-spacing: 0.1em; }
+.diffBarTrack {
+  position: relative;
+  height: 6px;
+  background: rgba(159, 176, 255, 0.08);
+}
+.diffBarFill { position: absolute; inset: 0; }
+.diffBarFillEasy { background: #6dd49a; }
+.diffBarFillMedium { background: #ffb86b; }
+.diffBarFillHard { background: #ff7b7b; }
+.diffBarCount { color: rgba(232, 236, 245, 0.85); text-align: right; }
+
+.miniSection { margin-top: 18px; }
+.miniSectionHead {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #9fb0ff;
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(159, 176, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Year filter tabs (inside miniSectionHead, sit on the right) */
+.yearTabs {
+  display: flex;
+  gap: 2px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 60%;
+}
+.yearTabs::-webkit-scrollbar { display: none; }
+.yearTab {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  background: transparent;
+  border: 1px solid rgba(159, 176, 255, 0.22);
+  color: rgba(232, 236, 245, 0.55);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.yearTab:hover {
+  color: #ffffff;
+  border-color: rgba(159, 176, 255, 0.5);
+}
+.yearTabActive {
+  background: rgba(159, 176, 255, 0.18);
+  color: #ffffff;
+  border-color: rgba(159, 176, 255, 0.6);
+}
+.repoList { display: flex; flex-direction: column; gap: 4px; }
+.repoItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12.5px;
+  text-decoration: none;
+  color: inherit;
+}
+.repoName { font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace; color: rgba(232, 236, 245, 0.9); }
+.repoMeta { font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace; font-size: 10.5px; color: rgba(232, 236, 245, 0.5); }
+
+.langBars { display: flex; flex-direction: column; gap: 5px; }
+.langBar { display: grid; grid-template-columns: 90px 1fr 32px; align-items: center; gap: 8px; font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace; font-size: 10.5px; }
+.langBarName { text-transform: uppercase; letter-spacing: 0.06em; color: rgba(232, 236, 245, 0.85); }
+.langBarTrack { position: relative; height: 4px; background: rgba(159, 176, 255, 0.08); }
+.langBarFill { position: absolute; inset: 0; background: #9fb0ff; }
+.langBarCount { text-align: right; color: rgba(232, 236, 245, 0.6); }
+
+.articleList { display: flex; flex-direction: column; gap: 2px; }
+.articleItem {
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(159, 176, 255, 0.12);
+  text-decoration: none;
+  color: inherit;
+  font-size: 13px;
+}
+.articleItem:last-child { border-bottom: 0; }
+.articleTitle { color: rgba(232, 236, 245, 0.9); margin: 0 0 3px; font-weight: 300; }
+.articleMeta { font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace; font-size: 10px; color: rgba(232, 236, 245, 0.5); }
+
+/* ─── Featured project (Phase 8-10) ─────────────────────────── */
+.featured {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(90vw, 880px);
+  background: rgba(13, 18, 36, 0.94);
+  border: 1px solid rgba(159, 176, 255, 0.3);
+  overflow: hidden;
+  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6));
+  cursor: pointer;
+  will-change: transform, opacity;
+}
+.featuredKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: #b8a8ff;
+  padding: 18px 28px 0;
+  display: block;
+}
+.featuredHero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #0d1224;
+  margin-top: 14px;
+}
+.featuredBody {
+  padding: 22px 28px 26px;
+}
+.featuredTitle {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 200;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0 0 14px;
+  color: #ffffff;
+}
+.featuredDesc {
+  font-size: 14.5px;
+  color: rgba(232, 236, 245, 0.7);
+  line-height: 1.6;
+  margin: 0 0 16px;
+  font-weight: 300;
+}
+.featuredMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.featuredTech {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  padding: 4px 10px;
+  background: rgba(159, 176, 255, 0.1);
+  border: 1px solid rgba(159, 176, 255, 0.2);
+  color: rgba(232, 236, 245, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ─── Projects grid (Phase 11-12) ───────────────────────────── */
+.projectCard {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 280px;
+  height: 200px;
+  background: rgba(13, 18, 36, 0.92);
+  border: 1px solid rgba(159, 176, 255, 0.2);
+  overflow: hidden;
+  cursor: pointer;
+  will-change: transform, opacity;
+  transform-origin: center;
+}
+.projectCardImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+}
+.projectCardOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(13, 18, 36, 0.95) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 18px;
+}
+.projectCardTitle {
+  font-size: 15px;
+  font-weight: 300;
+  margin: 0 0 4px;
+  color: #ffffff;
+  line-height: 1.2;
+}
+.projectCardDesc {
+  font-size: 11.5px;
+  color: rgba(232, 236, 245, 0.6);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+.projectCardTech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.projectCardTechItem {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  background: rgba(159, 176, 255, 0.12);
+  border: 1px solid rgba(159, 176, 255, 0.22);
+  color: rgba(232, 236, 245, 0.8);
+}
+
+/* ─── Files + Education ─────────────────────────────────────── */
+.list {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(90vw, 640px);
+  padding: 28px;
+  background: rgba(13, 18, 36, 0.9);
+  border: 1px solid rgba(159, 176, 255, 0.2);
+}
+.listKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: #9fb0ff;
+  margin-bottom: 18px;
+}
+.listTitle {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  margin: 0 0 22px;
+  color: #ffffff;
+}
+.listItems { display: flex; flex-direction: column; gap: 1px; }
+.listItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(159, 176, 255, 0.12);
+  text-decoration: none;
+  color: inherit;
+}
+.listItem:last-child { border-bottom: 0; }
+.listItemHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.listItemLabel { font-size: 15px; font-weight: 300; color: #ffffff; }
+.listItemMeta {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(232, 236, 245, 0.5);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.listItemDesc {
+  font-size: 12px;
+  color: rgba(232, 236, 245, 0.55);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.eduCard {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(159, 176, 255, 0.12);
+}
+.eduCard:last-child { border-bottom: 0; }
+.eduDate {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #9fb0ff;
+  margin-bottom: 4px;
+}
+.eduInst {
+  font-size: 16px;
+  font-weight: 300;
+  margin: 0 0 2px;
+  color: #ffffff;
+}
+.eduDeg {
+  font-size: 12.5px;
+  color: rgba(232, 236, 245, 0.6);
+  margin: 0;
+}
+
+/* ─── End ───────────────────────────────────────────────────── */
+.end {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  text-align: center;
+  width: min(90vw, 540px);
+}
+.endKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  color: rgba(159, 176, 255, 0.6);
+  margin-bottom: 24px;
+}
+.endText {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 200;
+  letter-spacing: -0.025em;
+  margin: 0 0 32px;
+  color: #ffffff;
+  line-height: 1.15;
+}
+.endLink {
+  display: inline-block;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #9fb0ff;
+  text-decoration: none;
+  padding: 11px 24px;
+  background: rgba(159, 176, 255, 0.08);
+  border: 1px solid rgba(159, 176, 255, 0.3);
+}
+.endLink:hover {
+  background: rgba(159, 176, 255, 0.18);
+}
+
+/* ─── Project modal (portal — hardcoded colors) ─────────────── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 9, 18, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px;
+  overflow-y: auto;
+  isolation: isolate;
+  animation: cmFadeIn 200ms ease-out;
+}
+@keyframes cmFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modalShell {
+  background: #0d1224;
+  color: #e8ecf5;
+  font-family: var(--font-sans), "Inter Display", "Geist", system-ui, -apple-system, sans-serif;
+  border: 1px solid rgba(159, 176, 255, 0.25);
+  width: min(100%, 880px);
+  position: relative;
+  animation: cmRise 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.6);
+}
+@keyframes cmRise {
+  from { opacity: 0; transform: translateY(20px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modalClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(159, 176, 255, 0.15);
+  color: #e8ecf5;
+  border: 1px solid rgba(159, 176, 255, 0.3);
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  z-index: 2;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+}
+.modalClose:hover { background: rgba(159, 176, 255, 0.28); }
+.modalHero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #070912;
+}
+.modalContent { padding: 32px 36px 36px; }
+.modalKicker {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #9fb0ff;
+  margin-bottom: 8px;
+}
+.modalTitle {
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 16px;
+  color: #ffffff;
+}
+.modalDesc { font-size: 15px; line-height: 1.6; color: rgba(232, 236, 245, 0.75); margin: 0 0 22px; white-space: pre-line; font-weight: 300; }
+.modalSection { margin-top: 22px; }
+.modalSectionHead {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #9fb0ff;
+  margin: 0 0 10px;
+}
+.modalChipRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.modalChip {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  padding: 4px 9px;
+  background: rgba(159, 176, 255, 0.1);
+  border: 1px solid rgba(159, 176, 255, 0.25);
+  color: #e8ecf5;
+}
+.modalLinkRow { display: flex; flex-wrap: wrap; gap: 10px; }
+.modalLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(159, 176, 255, 0.12);
+  border: 1px solid rgba(159, 176, 255, 0.32);
+  color: #e8ecf5;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+}
+.modalLink:hover { background: rgba(159, 176, 255, 0.22); }
+.modalGallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.modalGalleryImg { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #070912; }
+
+/* ─── Reduced motion: no pin, flat scroll, stages as sections ── */
+@media (prefers-reduced-motion: reduce) {
+  .track { height: auto !important; }
+  .stage {
+    position: relative;
+    height: auto;
+    overflow: visible;
+    background: #070912;
+  }
+  .stage::before { display: none; }
+  .hud { display: none; }
+  .stageEl, .expCard, .platformCard, .platformInfo, .featured, .projectCard, .list, .end {
+    position: relative !important;
+    left: auto !important; top: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    margin: 32px auto;
+    max-width: min(94%, 720px);
+  }
+  .platformInfo { max-height: none; }
+  .root { padding: 32px 0 64px; }
+}
+
+@media print {
+  .hud { display: none !important; }
+  .root { background: #fff !important; color: #111 !important; }
+  .track { height: auto !important; }
+  .stage { position: relative; height: auto; overflow: visible; background: #fff !important; }
+  .stage::before { display: none; }
+  .stageEl, .expCard, .platformCard, .platformInfo, .featured, .projectCard, .list, .end {
+    position: relative !important;
+    left: auto !important; top: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    color: #111 !important;
+    margin: 16px 0;
+    page-break-inside: avoid;
+    filter: none !important;
+    box-shadow: none !important;
+  }
+  .root, .root *, .root *::before, .root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1025,7 +1025,17 @@ export default function EditorForm({ initial }: { initial: InitialData }) {
                   {
                     value: "bento",
                     label: "Bento OS",
-                    desc: "Desktop OS — dock launches frosted-glass windowed apps",
+                    desc: "Vibrant gradient desktop, draggable frosted tiles",
+                  },
+                  {
+                    value: "spatial-walk",
+                    label: "Spatial Walk",
+                    desc: "Scroll-driven walk through a nighttime path of signposts",
+                  },
+                  {
+                    value: "cinematic",
+                    label: "Cinematic",
+                    desc: "Scroll-jacked tour with varied transitions — pan, zoom, wipe, match-cut",
                   },
                 ]}
               />
