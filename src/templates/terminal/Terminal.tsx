@@ -30,6 +30,7 @@ import {
   formatWhoami,
 } from "./output";
 import styles from "./terminal.module.css";
+import Link from "next/link";
 
 /*
  * Terminal — the interactive heart of this template.
@@ -954,7 +955,7 @@ function MakeYourOwnCTA() {
       >
         Auto-updating dev portfolio at one URL.
       </div>
-      <a
+      <Link
         href="/"
         style={{
           display: "inline-block",
@@ -978,7 +979,7 @@ function MakeYourOwnCTA() {
         }}
       >
         Make your own ↗
-      </a>
+      </Link>
     </section>
   );
 }

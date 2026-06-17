@@ -36,6 +36,10 @@ export default async function DashboardPage() {
   // A naive "completeness" check to nudge users to fill out their portfolio.
   const completeness = computeCompleteness(profile);
 
+  const ogVersion = profile.updatedAt
+  ? new Date(profile.updatedAt).getTime()
+  : "fresh";
+
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
@@ -127,7 +131,7 @@ export default async function DashboardPage() {
               endpoint, not a static asset; <img> is intentional. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`${publicUrl}/opengraph-image?v=${profile.updatedAt ? new Date(profile.updatedAt).getTime() : Date.now()}`}
+            src={`${publicUrl}/opengraph-image?v=${ogVersion}`}
             alt="Social-share preview for your portfolio"
             className="block w-full"
           />
