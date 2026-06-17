@@ -81,7 +81,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [https://pofoliox.vercel.app](https://pofoliox.vercel.app) in your browser.
 
 ### Available scripts
 
