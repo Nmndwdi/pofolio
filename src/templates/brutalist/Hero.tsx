@@ -25,14 +25,12 @@ import styles from "./brutalist.module.css";
 export function Hero({ data }: { data: LayoutData }) {
   // Split the name so we can accent the last word. For single-word names
   // (Cher, Madonna, Naman) the whole thing renders without accent.
-  const { mainName, lastWord } = useMemo(() => {
-    const words = data.displayName.trim().split(/\s+/);
-    if (words.length <= 1) return { mainName: data.displayName, lastWord: "" };
-    return {
-      mainName: words.slice(0, -1).join(" "),
-      lastWord: words[words.length - 1],
-    };
-  }, [data.displayName]);
+  // No manual useMemo — React Compiler memoizes automatically, and a
+  // useMemo returning an object that's destructured at the call site can't
+  // be preserved by the compiler (it's an anti-pattern with the compiler).
+  const words = data.displayName.trim().split(/\s+/);
+  const mainName = words.length <= 1 ? data.displayName : words.slice(0, -1).join(" ");
+  const lastWord = words.length <= 1 ? "" : words[words.length - 1];
 
   // Today's date for the masthead. Format: "26.05.26" — European date,
   // dot-separated, mono-spaced. Reads as "publication date".

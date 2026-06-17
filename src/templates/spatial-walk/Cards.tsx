@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
+import Link from "next/link";
 import type { LayoutData } from "@/components/layouts/types";
 import { deriveUrl } from "@/lib/cloudinary-url";
 import styles from "./spatial-walk.module.css";
@@ -923,9 +924,9 @@ function HorizonCard() {
   return (
     <div className={styles.cardHorizon}>
       <p className={styles.horizonText}>[ Quest complete ]</p>
-      <a href="/" className={styles.horizonLink}>
+      <Link href="/" className={styles.horizonLink}>
         Made with Pofolio →
-      </a>
+      </Link>
     </div>
   );
 }
@@ -1184,60 +1185,6 @@ function ActivityHeatmap({
   );
 }
 
-/* ─── Original constellation (still used by GitHub primary) ─── */
-function Constellation({
-  days,
-}: {
-  days: Array<{ date: string; count: number }>;
-}) {
-  const maxCount = useMemo(
-    () => days.reduce((m, d) => Math.max(m, d.count), 0) || 1,
-    [days],
-  );
-  const totalCount = useMemo(
-    () => days.reduce((s, d) => s + d.count, 0),
-    [days],
-  );
-  const activeDays = useMemo(
-    () => days.filter((d) => d.count > 0).length,
-    [days],
-  );
-  const step = Math.max(1, Math.floor(days.length / 120));
-  const sampled = days.filter((_, i) => i % step === 0);
-  return (
-    <div className={styles.miniSection}>
-      <div className={styles.miniSectionHead}>
-        Activity · {totalCount.toLocaleString("en-US")} total · {activeDays} active days
-      </div>
-      <svg
-        className={styles.constellation}
-        viewBox="0 0 240 56"
-        preserveAspectRatio="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {sampled.map((d, i) => {
-          const x = (i / Math.max(1, sampled.length - 1)) * 236 + 2;
-          const jitter = ((i * 37) % 13) - 6;
-          const y = 28 + jitter * 2;
-          const intensity = d.count === 0 ? 0 : d.count / maxCount;
-          const r = 0.4 + intensity * 1.7;
-          const op = d.count === 0 ? 0.12 : 0.35 + intensity * 0.6;
-          return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r={r}
-              fill={d.count === 0 ? "#4a4070" : "#a698ff"}
-              opacity={op}
-            />
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
 function Sparkline({
   points,
   stroke = "#a698ff",
@@ -1395,7 +1342,7 @@ function buildCards(data: LayoutData): CardDef[] {
       slot: i % 2 === 0 ? "right" : "left",
       sysLabel: `Quest ${String(i + 1).padStart(2, "0")}`,
       variant: "cardProject",
-      render: ({ onOpenProject }) => null, // ProjectCard requires sysBar — handled in main render
+      render: ({ onOpenProject: _onOpenProject }) => null, // ProjectCard requires sysBar — handled in main render
     });
   });
 

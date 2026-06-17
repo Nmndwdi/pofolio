@@ -336,7 +336,7 @@ export function Landscape({ slug, scrollProgressRef }: Props) {
     const lookTarget = new THREE.Vector3();
     const tmpTangent = new THREE.Vector3();
     let raf = 0;
-    let startTime = performance.now();
+    const startTime = performance.now();
 
     const render = () => {
       const now = performance.now();

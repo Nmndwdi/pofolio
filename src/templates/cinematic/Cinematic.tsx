@@ -2,6 +2,7 @@
 
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LayoutData } from "@/components/layouts/types";
 import { deriveUrl } from "@/lib/cloudinary-url";
@@ -271,7 +272,10 @@ function MiniSparkline({
 /* ─── Platform info panels ───────────────────────────────────── */
 
 function GitHubInfo({ g }: { g: NonNullable<LayoutData["github"]>["data"] }) {
-  const heatmapDays = g.contributions?.days ?? [];
+  const heatmapDays = useMemo(
+    () => g.contributions?.days ?? [],
+    [g.contributions?.days],
+  );
   const years = useMemo(() => getAvailableYears(heatmapDays), [heatmapDays]);
   const [year, setYear] = useState<string>(years[0] ?? "ALL");
   const topLangs = (g.languageBreakdown ?? []).slice(0, 5);
@@ -355,7 +359,10 @@ function LeetCodeInfo({
   l: NonNullable<LayoutData["leetcode"]>["data"];
 }) {
   const TOTAL_EASY = 875, TOTAL_MEDIUM = 1900, TOTAL_HARD = 860;
-  const heatmapDays = l.submissionHeatmap ?? [];
+  const heatmapDays = useMemo(
+    () => l.submissionHeatmap ?? [],
+    [l.submissionHeatmap],
+  );
   const years = useMemo(() => getAvailableYears(heatmapDays), [heatmapDays]);
   const [year, setYear] = useState<string>(years[0] ?? "ALL");
   const maxStreak = computeMaxStreak(heatmapDays);
@@ -449,7 +456,10 @@ function CodeforcesInfo({
 }: {
   c: NonNullable<LayoutData["codeforces"]>["data"];
 }) {
-  const heatmapDays = c.submissionHeatmap ?? [];
+  const heatmapDays = useMemo(
+    () => c.submissionHeatmap ?? [],
+    [c.submissionHeatmap],
+  );
   const years = useMemo(() => getAvailableYears(heatmapDays), [heatmapDays]);
   const [year, setYear] = useState<string>(years[0] ?? "ALL");
   const activeDays = heatmapDays.filter((d) => d.count > 0).length;
@@ -1966,9 +1976,9 @@ export function Cinematic({ data }: { data: LayoutData }) {
             <p className={styles.endText}>
               Thanks for watching, {data.displayName.split(" ")[0]}.
             </p>
-            <a href="/" className={styles.endLink}>
+            <Link href="/" className={styles.endLink}>
               Made with Pofolio →
-            </a>
+            </Link>
           </div>
         </div>
       </div>
